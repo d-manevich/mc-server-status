@@ -1,0 +1,15 @@
+{
+  "name": "mc-server-status",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mcping-js": "^1.5.0",
+    "node-telegram-bot-api": "^0.54.0"
+  }
+}
