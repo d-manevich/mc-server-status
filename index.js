@@ -1,6 +1,8 @@
 const TIMEOUT = 10000
 const PROTOCOL_VERSION = 756 // 1.7.1 from https://wiki.vg/Protocol_version_numbers
-const TOKEN = '2010523624:AAEdIItSqt2Ufo6SvWD2J8Ymygcj6p3Tl9k' // change token later and take from env
+const TOKEN = process.env.TG_TOKEN
+
+if (!TOKEN) throw new Error('You need to specify telegram bot token');
 
 const TelegramBot = require('node-telegram-bot-api')
 const mcping = require('mcping-js')
