@@ -156,6 +156,11 @@ function onServerUpdate(url, err, res) {
     return
   }
 
+  if (!Object.keys(res).length) {
+    console.log('Empry server response')
+    return
+  }
+  console.log(res)
   const { online, onlineInfo, playersInfo, playerList } = parseServerStatus(res)
 
   if (online === playerList.length && onlineInfo !== CACHED_STATUSES[url]?.online && playersInfo !== CACHED_STATUSES[url]?.players) {
