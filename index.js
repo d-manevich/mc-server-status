@@ -152,7 +152,8 @@ bot.on('message', async (msg) => {
 
 function onServerUpdate(url, err, res) {
   if (err) {
-    throw new Error(err)
+    console.log(err)
+    return
   }
 
   const { online, onlineInfo, playersInfo, playerList } = parseServerStatus(res)
