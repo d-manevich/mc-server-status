@@ -9,6 +9,7 @@ const mcping = require('mcping-js')
 
 const SERVERS_AND_CHATS_TO_NOTIFY = {} // { 'server url': [chatId, ...] }
 const CACHED_STATUSES = {} // { 'server url': { online: String, players: String } }
+const CHATS_MESSAGES = {} // { 'server url': { chatId: messageId } }
 
 console.log('init telegram bot')
 // Create a bot that uses 'polling' to fetch new updates
@@ -150,6 +151,27 @@ bot.on('message', async (msg) => {
   return bot.sendMessage(msg.chat.id, 'Unknown command')
 });
 
+async function updateStatusMessage(url, chatId, text) {
+  const messageId = CHATS_MESSAGES[url]?.[chatId]
+
+  if (messageId) {
+    try {
+      bot.deleteMessage(chatId, messageId)
+    } catch {
+      console.log(`can't delete message`, { chatId, messageId })
+    }
+  }
+
+  try {
+    const message = await bot.sendMessage(chatId, text, { disable_notification: true })
+
+    if (!CHATS_MESSAGES[url]) CHATS_MESSAGES[url] = { [chatId]: message.message_id }
+    else CHATS_MESSAGES[url][chatId] = message.message_id
+  } catch {
+    console.log(`can't sent message`, { chatId, text })
+  }
+}
+
 function onServerUpdate(url, err, res) {
   if (err) {
     console.log(err)
@@ -167,7 +189,7 @@ function onServerUpdate(url, err, res) {
     const text = `${url}\nonline: ${onlineInfo}${playersInfo ? `, players: ${playersInfo}` : ''}`
 
     SERVERS_AND_CHATS_TO_NOTIFY[url].forEach(chatId => {
-      bot.sendMessage(chatId, text)
+      updateStatusMessage(url, chatId, text)
     })
 
     cacheStatus(url, onlineInfo, playersInfo)
