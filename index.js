@@ -6,10 +6,12 @@ if (!TOKEN) throw new Error('You need to specify telegram bot token');
 
 const TelegramBot = require('node-telegram-bot-api')
 const mcping = require('mcping-js')
+const subDays = require('date-fns/subDays')
 
 const SERVERS_AND_CHATS_TO_NOTIFY = {} // { 'server url': [chatId, ...] }
 const CACHED_STATUSES = {} // { 'server url': { online: String, players: String } }
 const CHATS_MESSAGES = {} // { 'server url': { chatId: messageId } }
+const PLAYERS_TIME = {} // { 'server url': { name: time, ... } }
 
 console.log('init telegram bot')
 // Create a bot that uses 'polling' to fetch new updates
@@ -36,11 +38,25 @@ function parseServerStatus(res) {
   }
 }
 
+function getLastPlayers(url) {
+  const allPlayersTime = PLAYERS_TIME[url] || {}
+  const allPlayersArr = Object.entries(allPlayersTime)
+  const yesterday = subDays(new Date(), 1);
+
+  return allPlayersArr.filter(([name, time]) => time > yesterday).map(([name]) => name)
+}
+
 function cacheStatus(url, online, players) {
   CACHED_STATUSES[url] = {
     online,
     players,
   }
+}
+
+function cachePlayersTime(url, playerList) {
+  if (!PLAYERS_TIME[url]) PLAYERS_TIME[url] = {}
+
+  playerList.forEach(player => PLAYERS_TIME[url][player] = new Date())
 }
 
 async function parseStartMsgUrl(msg) {
@@ -186,13 +202,15 @@ function onServerUpdate(url, err, res) {
   const { online, onlineInfo, playersInfo, playerList } = parseServerStatus(res)
 
   if (online === playerList.length && onlineInfo !== CACHED_STATUSES[url]?.online && playersInfo !== CACHED_STATUSES[url]?.players) {
-    const text = `${url}\nonline: ${onlineInfo}${playersInfo ? `, players: ${playersInfo}` : ''}`
+    cacheStatus(url, onlineInfo, playersInfo)
+    cachePlayersTime(url, playerList)
+
+    const lastPlayers = getLastPlayers(url)
+    const text = `${url}\nonline: ${onlineInfo}${playersInfo ? `, players: ${playersInfo}` : ''}\nlast 24h: ${lastPlayers.join(', ')}`
 
     SERVERS_AND_CHATS_TO_NOTIFY[url].forEach(chatId => {
       updateStatusMessage(url, chatId, text)
     })
-
-    cacheStatus(url, onlineInfo, playersInfo)
   }
 }
 
