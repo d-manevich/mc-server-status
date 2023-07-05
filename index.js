@@ -163,9 +163,13 @@ async function updateStatusMessage(url, chatId, text) {
 
   if (messageId) {
     try {
-      bot.deleteMessage(chatId, messageId)
-    } catch {
-      console.log(`can't delete message`, { chatId, messageId })
+      const edited = await bot.editMessageText(text, { chat_id: chatId, message_id: messageId });
+      if (edited) {
+        return
+      }
+      await bot.deleteMessage(chatId, messageId)
+    } catch (e) {
+      console.log(`can't delete message`, { chatId, messageId, e })
     }
   }
 
