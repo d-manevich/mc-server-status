@@ -158,6 +158,14 @@ bot.on('message', async (msg) => {
   return bot.sendMessage(msg.chat.id, 'Unknown command')
 });
 
+bot.on('pinned_message', async (msg) => {
+  const me = await bot.getMe();
+  const isItMyPin = msg.from.id === me.id;
+  if (isItMyPin) {
+    await bot.deleteMessage(msg.chat.id, msg.message_id);
+  }
+})
+
 async function updateStatusMessage(url, chatId, text) {
   const messageId = CHATS_MESSAGES[url]?.[chatId]
 
@@ -175,6 +183,7 @@ async function updateStatusMessage(url, chatId, text) {
 
   try {
     const message = await bot.sendMessage(chatId, text, { disable_notification: true })
+    const pinned = await bot.pinChatMessage(chatId, message.message_id, { disable_notification: true });
 
     if (!CHATS_MESSAGES[url]) CHATS_MESSAGES[url] = { [chatId]: message.message_id }
     else CHATS_MESSAGES[url][chatId] = message.message_id
