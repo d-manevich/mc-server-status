@@ -225,11 +225,6 @@ function onServerUpdate(url, err, res) {
   const prevStatus = CACHED_STATUSES.get(url);
   const status = parseServerStatus(res, prevStatus);
 
-  // if (
-  //   online === playerList.length &&
-  //   onlineInfo !== CACHED_STATUSES[url]?.online &&
-  //   playersInfo !== CACHED_STATUSES[url]?.players
-  // ) {
   if (
     getServerStatusMessage(url, status) !==
     getServerStatusMessage(url, prevStatus)
