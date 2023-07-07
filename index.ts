@@ -1,17 +1,23 @@
+import {
+  getServerStatusMessage,
+  ServerStatus,
+} from "./src/update-server-status";
+import { MinecraftServer } from "mcping-js";
+import * as TelegramBot from "node-telegram-bot-api";
+
 const TIMEOUT = 10000;
-const PROTOCOL_VERSION = process.env.PROTOCOL_VERSION || 763; // 1.7.1 from https://wiki.vg/Protocol_version_numbers
+const PROTOCOL_VERSION: number = process.env.PROTOCOL_VERSION
+  ? Number(process.env.PROTOCOL_VERSION)
+  : 763; // 1.7.1 from https://wiki.vg/Protocol_version_numbers
 const TOKEN = process.env.TG_TOKEN;
 
 // Getting this ID from server if user is logging in
-const USER_MOCK_ID = "00000000-0000-0000-0000-000000000000";
+const USER_MOCK_ID: string = "00000000-0000-0000-0000-000000000000";
 
 if (!TOKEN) throw new Error("You need to specify telegram bot token");
 
-const TelegramBot = require("node-telegram-bot-api");
-const mcping = require("mcping-js");
-
 const SERVERS_AND_CHATS_TO_NOTIFY = {}; // { 'server url': [chatId, ...] }
-const CACHED_STATUSES = {}; // { 'server url': { online: String, players: String } }
+const CACHED_STATUSES = new Map<string, ServerStatus>();
 const CHATS_MESSAGES = {}; // { 'server url': { chatId: messageId } }
 
 console.log("init telegram bot");
@@ -24,22 +30,26 @@ bot.setMyCommands([
   { command: "/stop", description: "Stop live status" },
 ]);
 
-function parseServerStatus(res) {
+function parseServerStatus(res, prevStatus?: ServerStatus): ServerStatus {
   const {
-    players: { max, online, sample = [] },
+    players: { max, sample = [] },
   } = res;
-  const playerList = sample
+  const online = sample
     .filter((player) => player.id !== USER_MOCK_ID)
-    .map((player) => player.name)
-    .sort();
-  const onlineInfo = `${online}/${max}`;
-  const playersInfo = playerList.join(", ");
-
+    .map((player) => ({
+      ...player,
+      lastOnline: new Date(),
+    }));
+  const offline = [
+    ...(prevStatus?.online || []),
+    ...(prevStatus?.offline || []),
+  ].filter((p) => online.every((o) => o.id !== p.id));
   return {
+    server: {
+      max,
+    },
     online,
-    onlineInfo: onlineInfo,
-    playersInfo: playersInfo,
-    playerList,
+    offline,
   };
 }
 
@@ -59,7 +69,7 @@ async function parseStartMsgUrl(msg) {
   try {
     await new Promise((resolve, reject) => {
       console.log(`try to connect to server ${serverUrl}`);
-      const serverTest = new mcping.MinecraftServer(host, port);
+      const serverTest = new MinecraftServer(host, port);
 
       console.log(`try to ping server ${serverUrl}`);
       serverTest.ping(TIMEOUT, PROTOCOL_VERSION, (err, res) => {
@@ -100,12 +110,9 @@ async function subscribe(msg) {
     }
     bot.sendMessage(chat.id, `Server ${url} is successfully added`);
 
-    if (CACHED_STATUSES[url]) {
-      const { online, players } = CACHED_STATUSES[url];
-      const text = `${url}\nonline: ${online}${
-        players ? `, players: ${players}` : ""
-      }`;
-      bot.sendMessage(chat.id, text);
+    if (CACHED_STATUSES.get(url)) {
+      const status = CACHED_STATUSES.get(url);
+      bot.sendMessage(chat.id, getServerStatusMessage(url, status));
     }
   } catch (error) {
     bot.sendMessage(chat.id, error.message);
@@ -167,27 +174,40 @@ bot.on("message", async (msg) => {
   return bot.sendMessage(msg.chat.id, "Unknown command");
 });
 
-async function updateStatusMessage(url, chatId, text) {
-  const messageId = CHATS_MESSAGES[url]?.[chatId];
-
-  if (messageId) {
-    try {
-      bot.deleteMessage(chatId, messageId);
-    } catch {
-      console.log(`can't delete message`, { chatId, messageId });
-    }
+async function updateStatusMessage(url: string, chatId: string, text: string) {
+  if (!CHATS_MESSAGES[url]) {
+    CHATS_MESSAGES[url] = {};
   }
-
+  const messageId = CHATS_MESSAGES[url]?.[chatId];
+  let message!: TelegramBot.Message | boolean;
   try {
-    const message = await bot.sendMessage(chatId, text, {
-      disable_notification: true,
-    });
-
-    if (!CHATS_MESSAGES[url])
-      CHATS_MESSAGES[url] = { [chatId]: message.message_id };
-    else CHATS_MESSAGES[url][chatId] = message.message_id;
-  } catch {
-    console.log(`can't sent message`, { chatId, text });
+    if (CHATS_MESSAGES[url][chatId]) {
+      message = await bot.editMessageText(text, {
+        chat_id: chatId,
+        message_id: messageId,
+      });
+    }
+  } catch (err) {
+    console.log("can't edit message", { chatId, messageId, text }, err);
+  }
+  try {
+    if (typeof message !== "object") {
+      if (messageId) {
+        try {
+          bot.deleteMessage(chatId, messageId);
+        } catch (err) {
+          console.log(`can't delete message`, { chatId, messageId }, err);
+        }
+      }
+      message = await bot.sendMessage(chatId, text, {
+        disable_notification: true,
+      });
+    }
+  } catch (err) {
+    console.log(`can't sent message`, { chatId, text }, err);
+  }
+  if (typeof message === "object") {
+    CHATS_MESSAGES[url][chatId] = message.message_id;
   }
 }
 
@@ -202,22 +222,26 @@ function onServerUpdate(url, err, res) {
     return;
   }
   console.log(res);
-  const { online, onlineInfo, playersInfo, playerList } =
-    parseServerStatus(res);
+  const prevStatus = CACHED_STATUSES.get(url);
+  const status = parseServerStatus(res, prevStatus);
 
+  // if (
+  //   online === playerList.length &&
+  //   onlineInfo !== CACHED_STATUSES[url]?.online &&
+  //   playersInfo !== CACHED_STATUSES[url]?.players
+  // ) {
   if (
-    online === playerList.length &&
-    onlineInfo !== CACHED_STATUSES[url]?.online &&
-    playersInfo !== CACHED_STATUSES[url]?.players
+    getServerStatusMessage(url, status) !==
+    getServerStatusMessage(url, prevStatus)
   ) {
-    CACHED_STATUSES[url] = { online: onlineInfo, players: playersInfo };
-
-    const text = `${url}\nonline: ${onlineInfo}${
-      playersInfo ? `, players: ${playersInfo}` : ""
-    }`;
+    CACHED_STATUSES.set(url, status);
 
     SERVERS_AND_CHATS_TO_NOTIFY[url].forEach((chatId) => {
-      updateStatusMessage(url, chatId, text);
+      void updateStatusMessage(
+        url,
+        chatId,
+        getServerStatusMessage(url, status),
+      );
     });
   }
 }
@@ -227,7 +251,7 @@ setInterval(() => {
     const subscribedChats = SERVERS_AND_CHATS_TO_NOTIFY[url];
     if (subscribedChats.length) {
       const [host, port] = url.split(":");
-      const server = new mcping.MinecraftServer(host, port);
+      const server = new MinecraftServer(host, Number(port));
       server.ping(TIMEOUT, PROTOCOL_VERSION, (err, res) =>
         onServerUpdate(url, err, res),
       );
