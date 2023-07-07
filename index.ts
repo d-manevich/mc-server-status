@@ -43,13 +43,6 @@ function parseServerStatus(res) {
   };
 }
 
-function cacheStatus(url, online, players) {
-  CACHED_STATUSES[url] = {
-    online,
-    players,
-  };
-}
-
 async function parseStartMsgUrl(msg) {
   const { entities, chat, text } = msg;
   const urlEntity = entities.find((entity) => entity.type === "url"); // undefined || { offset: 7, length: 9, type: 'url' }
@@ -205,7 +198,7 @@ function onServerUpdate(url, err, res) {
   }
 
   if (!Object.keys(res).length) {
-    console.log("Empry server response");
+    console.log("Empty server response");
     return;
   }
   console.log(res);
@@ -217,7 +210,7 @@ function onServerUpdate(url, err, res) {
     onlineInfo !== CACHED_STATUSES[url]?.online &&
     playersInfo !== CACHED_STATUSES[url]?.players
   ) {
-    cacheStatus(url, onlineInfo, playersInfo);
+    CACHED_STATUSES[url] = { online: onlineInfo, players: playersInfo };
 
     const text = `${url}\nonline: ${onlineInfo}${
       playersInfo ? `, players: ${playersInfo}` : ""
