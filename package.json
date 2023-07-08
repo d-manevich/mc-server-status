@@ -6,8 +6,8 @@
   "scripts": {
     "start": "ts-node index.ts",
     "build": "tsc",
-    "format": "prettier --write '**/*.ts'",
-    "format-check": "prettier --check '**/*.ts'",
+    "prettier": "prettier --write '**/*.ts'",
+    "prettier:check": "prettier --check '**/*.ts'",
     "test": "vitest"
   },
   "author": "",
