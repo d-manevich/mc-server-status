@@ -208,6 +208,14 @@ bot.on("message", async (msg) => {
     return bot.sendMessage(msg.chat.id, "Unknown command");
 });
 
+bot.on('pinned_message', async (msg) => {
+    const me = await bot.getMe();
+    const isItMyPin = msg.from?.id === me.id;
+    if (isItMyPin) {
+        await bot.deleteMessage(msg.chat.id, msg.message_id);
+    }
+})
+
 async function editMessage(chatId: number, messageId: number | undefined, text: string) {
     if (!messageId) {
         return false;
@@ -244,6 +252,7 @@ async function updateStatusMessage(url: string, chatId: number, text: string) {
                 disable_notification: true,
             });
             server.set(chatId, newMessage.message_id);
+            await bot.pinChatMessage(chatId, newMessage.message_id, { disable_notification: true });
         }
     } catch (err) {
         console.error(`Error: `, {chatId, text}, err);
