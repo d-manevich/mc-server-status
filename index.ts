@@ -4,7 +4,6 @@ import {
 } from "./src/update-server-status";
 import { MinecraftServer, PingResponse } from "mcping-js";
 import * as TelegramBot from "node-telegram-bot-api";
-import type { Message } from "node-telegram-bot-api";
 
 const TIMEOUT = 10000;
 const MINECRAFT_POLLING_INTERVAL_MS = 2000;
@@ -32,6 +31,37 @@ bot.setMyCommands([
   { command: "/remove", description: "Delete server from live status updates" },
   { command: "/stop", description: "Stop live status" },
 ]);
+
+bot.onText(/\/add (.+)/, async (msg, match) => {
+  if (match?.[1]) {
+    await subscribe(msg.chat.id, match[1]);
+  }
+});
+
+bot.onText(/\/remove (.+)/, async (msg, match) => {
+  if (match?.[1]) {
+    await unsubscribe(msg.chat.id, match[1]);
+  }
+});
+
+bot.onText(/\/stop/, async (msg) => {
+  await unsubscribeAll(msg.chat.id);
+});
+
+bot.on("pinned_message", async (msg) => {
+  const me = await bot.getMe();
+  const isItMyPin = msg.from?.id === me.id;
+  if (isItMyPin) {
+    try {
+      await bot.deleteMessage(msg.chat.id, msg.message_id);
+    } catch (e) {
+      console.error("Could not delete message ", msg.message_id);
+      if (e instanceof Error) {
+        console.error(e.message);
+      }
+    }
+  }
+});
 
 function parseServerStatus(
   res: PingResponse,
@@ -68,26 +98,6 @@ function parseUrlForHostAndPort(serverUrl: string) {
   return { host, port: portNumber };
 }
 
-function parseTelegramMessageForServerUrl(msg: TelegramBot.Message) {
-  const { entities, text } = msg;
-  const urlEntity = entities?.find((entity) => entity.type === "url"); // undefined || { offset: 7, length: 9, type: 'url' }
-
-  if (!urlEntity) {
-    throw new Error("You need to specify server url");
-  }
-  if (!text) {
-    throw new Error("You need to specify text");
-  }
-  const serverUrl = text.substring(
-    urlEntity.offset,
-    urlEntity.offset + urlEntity.length,
-  );
-  if (!serverUrl) {
-    throw new Error("Incorrect server URL: " + serverUrl);
-  }
-  return serverUrl;
-}
-
 function isMinecraftServerAvailable(
   serverUrl: string,
   host: string,
@@ -111,18 +121,9 @@ function isMinecraftServerAvailable(
   });
 }
 
-async function parseStartMsgUrl(msg: Message) {
-  const url = parseTelegramMessageForServerUrl(msg);
-  const { host, port } = parseUrlForHostAndPort(url);
-
-  return { url, host, port };
-}
-
-async function subscribe(msg: Message) {
-  const { chat } = msg;
-
+async function subscribe(chatId: number, url: string) {
   try {
-    const { url, host, port } = await parseStartMsgUrl(msg);
+    const { host, port } = parseUrlForHostAndPort(url);
     try {
       const isServerAvailable = await isMinecraftServerAvailable(
         url,
@@ -137,92 +138,61 @@ async function subscribe(msg: Message) {
     }
 
     const subscribedChats = SERVERS_AND_CHATS_TO_NOTIFY[url];
-    if (subscribedChats?.find((subscribedChat) => subscribedChat === chat.id)) {
+    if (subscribedChats?.find((subscribedChat) => subscribedChat === chatId)) {
       throw new Error(`${url} is already added`);
     }
 
     if (!subscribedChats) {
-      SERVERS_AND_CHATS_TO_NOTIFY[url] = [chat.id];
+      SERVERS_AND_CHATS_TO_NOTIFY[url] = [chatId];
     } else {
-      SERVERS_AND_CHATS_TO_NOTIFY[url].push(chat.id);
+      SERVERS_AND_CHATS_TO_NOTIFY[url].push(chatId);
     }
-    await bot.sendMessage(chat.id, `Server ${url} is successfully added`);
+    await bot.sendMessage(chatId, `Server ${url} is successfully added`);
 
     let cachedStatus = CACHED_STATUSES.get(url);
     if (cachedStatus) {
-      await bot.sendMessage(chat.id, getServerStatusMessage(url, cachedStatus));
+      await bot.sendMessage(chatId, getServerStatusMessage(url, cachedStatus));
     }
   } catch (error) {
     if (error instanceof Error) {
-      await bot.sendMessage(chat.id, error.message);
+      await bot.sendMessage(chatId, error.message);
     }
   }
   return;
 }
 
-async function unsubscribe(msg: Message) {
-  const { chat } = msg;
-
+async function unsubscribe(chatId: number, url: string) {
   try {
-    const { url } = await parseStartMsgUrl(msg);
     const subscribedChats = SERVERS_AND_CHATS_TO_NOTIFY[url];
     if (
       !subscribedChats ||
-      !subscribedChats.find((subscribedChat) => subscribedChat === chat.id)
+      !subscribedChats.find((subscribedChat) => subscribedChat === chatId)
     ) {
       throw new Error(`${url} was not added`);
     }
 
     SERVERS_AND_CHATS_TO_NOTIFY[url] = subscribedChats.filter(
-      (chatId) => chatId !== chat.id,
+      (chatId) => chatId !== chatId,
     );
-    await bot.sendMessage(chat.id, `Server ${url} is successfully removed`);
+    await bot.sendMessage(chatId, `Server ${url} is successfully removed`);
   } catch (error) {
     if (error instanceof Error) {
-      await bot.sendMessage(chat.id, error.message);
+      await bot.sendMessage(chatId, error.message);
     }
   }
   return;
 }
 
-async function unsubscribeAll(msg: Message) {
-  const { chat } = msg;
-
+async function unsubscribeAll(chatId: number) {
   Object.keys(SERVERS_AND_CHATS_TO_NOTIFY).forEach((url) => {
     const chats = SERVERS_AND_CHATS_TO_NOTIFY[url];
     SERVERS_AND_CHATS_TO_NOTIFY[url] = chats.filter(
-      (chatId) => chatId !== chat.id,
+      (chatId) => chatId !== chatId,
     );
   });
 
-  await bot.sendMessage(chat.id, "Unsubscribe from all servers");
+  await bot.sendMessage(chatId, "Unsubscribe from all servers");
 }
-
-bot.on("message", async (msg) => {
-  if (!msg?.text) return;
-
-  if (msg.text.startsWith("/add")) {
-    return subscribe(msg);
-  }
-
-  if (msg.text.startsWith("/remove")) {
-    return unsubscribe(msg);
-  }
-
-  if (msg.text === "/stop") {
-    return unsubscribeAll(msg);
-  }
-
-  return bot.sendMessage(msg.chat.id, "Unknown command");
-});
-
-bot.on("pinned_message", async (msg) => {
-  const me = await bot.getMe();
-  const isItMyPin = msg.from?.id === me.id;
-  if (isItMyPin) {
-    await bot.deleteMessage(msg.chat.id, msg.message_id);
-  }
-});
 
 async function editMessage(
   chatId: number,
