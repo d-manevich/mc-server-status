@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - 'master'
+env:
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   docker:
@@ -26,4 +28,5 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: true
-          tags: user/app:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
