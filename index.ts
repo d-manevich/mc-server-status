@@ -2,10 +2,13 @@ import {
   getServerStatusMessage,
   ServerStatus,
 } from "./src/update-server-status";
-import { MinecraftServer } from "mcping-js";
+import { MinecraftServer, PingResponse } from "mcping-js";
 import * as TelegramBot from "node-telegram-bot-api";
+import type { Message } from "node-telegram-bot-api";
 
 const TIMEOUT = 10000;
+const MINECRAFT_POLLING_INTERVAL_MS = 2000;
+
 const PROTOCOL_VERSION: number = process.env.PROTOCOL_VERSION
   ? Number(process.env.PROTOCOL_VERSION)
   : 763; // 1.7.1 from https://wiki.vg/Protocol_version_numbers
@@ -16,9 +19,9 @@ const USER_MOCK_ID: string = "00000000-0000-0000-0000-000000000000";
 
 if (!TOKEN) throw new Error("You need to specify telegram bot token");
 
-const SERVERS_AND_CHATS_TO_NOTIFY = {}; // { 'server url': [chatId, ...] }
+const SERVERS_AND_CHATS_TO_NOTIFY: Record<string, number[]> = {}; // { 'server url': [chatId, ...] }
 const CACHED_STATUSES = new Map<string, ServerStatus>();
-const CHATS_MESSAGES = {}; // { 'server url': { chatId: messageId } }
+const CHATS_MESSAGES: Record<string, Map<number, number>> = {}; // { 'server url': { chatId: messageId } }
 
 console.log("init telegram bot");
 // Create a bot that uses 'polling' to fetch new updates
@@ -30,7 +33,10 @@ bot.setMyCommands([
   { command: "/stop", description: "Stop live status" },
 ]);
 
-function parseServerStatus(res, prevStatus?: ServerStatus): ServerStatus {
+function parseServerStatus(
+  res: PingResponse,
+  prevStatus?: ServerStatus,
+): ServerStatus {
   const {
     players: { max, sample = [] },
   } = res;
@@ -43,7 +49,7 @@ function parseServerStatus(res, prevStatus?: ServerStatus): ServerStatus {
   const offline = [
     ...(prevStatus?.online || []),
     ...(prevStatus?.offline || []),
-  ].filter((p) => online.every((o) => o.id !== p.id));
+  ].filter((p) => online.every((onlinePlayer) => onlinePlayer.id !== p.id));
   return {
     server: {
       max,
@@ -53,53 +59,85 @@ function parseServerStatus(res, prevStatus?: ServerStatus): ServerStatus {
   };
 }
 
-async function parseStartMsgUrl(msg) {
-  const { entities, chat, text } = msg;
-  const urlEntity = entities.find((entity) => entity.type === "url"); // undefined || { offset: 7, length: 9, type: 'url' }
+function parseUrlForHostAndPort(serverUrl: string) {
+  const [host, port] = serverUrl.split(":");
+  let portNumber: number | undefined = +port;
+  if (portNumber <= 0 || isNaN(portNumber)) {
+    portNumber = undefined;
+  }
+  return { host, port: portNumber };
+}
+
+function parseTelegramMessageForServerUrl(msg: TelegramBot.Message) {
+  const { entities, text } = msg;
+  const urlEntity = entities?.find((entity) => entity.type === "url"); // undefined || { offset: 7, length: 9, type: 'url' }
 
   if (!urlEntity) {
     throw new Error("You need to specify server url");
   }
-  console.log("url entity found");
+  if (!text) {
+    throw new Error("You need to specify text");
+  }
   const serverUrl = text.substring(
     urlEntity.offset,
     urlEntity.offset + urlEntity.length,
   );
-  const [host, port] = serverUrl.split(":");
-  try {
-    await new Promise((resolve, reject) => {
-      console.log(`try to connect to server ${serverUrl}`);
-      const serverTest = new MinecraftServer(host, port);
-
-      console.log(`try to ping server ${serverUrl}`);
-      serverTest.ping(TIMEOUT, PROTOCOL_VERSION, (err, res) => {
-        console.log({ serverUrl, err, res });
-        if (err) reject(err);
-        else if (res) {
-          resolve(res);
-        }
-
-        reject(new Error("Server fetch unknown error"));
-      });
-    });
-  } catch (error) {
-    throw new Error("Invalid minecraft server");
+  if (!serverUrl) {
+    throw new Error("Incorrect server URL: " + serverUrl);
   }
-
-  console.log("minecraft server ping success");
   return serverUrl;
 }
 
-async function subscribe(msg) {
+function isMinecraftServerAvailable(
+  serverUrl: string,
+  host: string,
+  port: number | undefined,
+) {
+  return new Promise<boolean>((resolve, reject) => {
+    console.log(`trying to connect to server ${serverUrl}`);
+
+    const serverTest = new MinecraftServer(host, port);
+
+    console.log(`trying to ping server ${serverUrl}`);
+    serverTest.ping(TIMEOUT, PROTOCOL_VERSION, (err, res) => {
+      console.log({ serverUrl, err, res });
+      if (err) resolve(false);
+      else if (res) {
+        resolve(true);
+      }
+
+      reject(new Error("Server fetch unknown error"));
+    });
+  });
+}
+
+async function parseStartMsgUrl(msg: Message) {
+  const url = parseTelegramMessageForServerUrl(msg);
+  const { host, port } = parseUrlForHostAndPort(url);
+
+  return { url, host, port };
+}
+
+async function subscribe(msg: Message) {
   const { chat } = msg;
 
   try {
-    const url = await parseStartMsgUrl(msg);
+    const { url, host, port } = await parseStartMsgUrl(msg);
+    try {
+      const isServerAvailable = await isMinecraftServerAvailable(
+        url,
+        host,
+        port,
+      );
+      if (!isServerAvailable) {
+        throw new Error("Invalid minecraft server");
+      }
+    } catch (error) {
+      throw new Error("Invalid minecraft server");
+    }
+
     const subscribedChats = SERVERS_AND_CHATS_TO_NOTIFY[url];
-    if (
-      subscribedChats &&
-      subscribedChats.find((subscribedChat) => subscribedChat === chat.id)
-    ) {
+    if (subscribedChats?.find((subscribedChat) => subscribedChat === chat.id)) {
       throw new Error(`${url} is already added`);
     }
 
@@ -108,23 +146,25 @@ async function subscribe(msg) {
     } else {
       SERVERS_AND_CHATS_TO_NOTIFY[url].push(chat.id);
     }
-    bot.sendMessage(chat.id, `Server ${url} is successfully added`);
+    await bot.sendMessage(chat.id, `Server ${url} is successfully added`);
 
-    if (CACHED_STATUSES.get(url)) {
-      const status = CACHED_STATUSES.get(url);
-      bot.sendMessage(chat.id, getServerStatusMessage(url, status));
+    let cachedStatus = CACHED_STATUSES.get(url);
+    if (cachedStatus) {
+      await bot.sendMessage(chat.id, getServerStatusMessage(url, cachedStatus));
     }
   } catch (error) {
-    bot.sendMessage(chat.id, error.message);
+    if (error instanceof Error) {
+      await bot.sendMessage(chat.id, error.message);
+    }
   }
   return;
 }
 
-async function unsubscribe(msg) {
+async function unsubscribe(msg: Message) {
   const { chat } = msg;
 
   try {
-    const url = await parseStartMsgUrl(msg);
+    const { url } = await parseStartMsgUrl(msg);
     const subscribedChats = SERVERS_AND_CHATS_TO_NOTIFY[url];
     if (
       !subscribedChats ||
@@ -136,14 +176,16 @@ async function unsubscribe(msg) {
     SERVERS_AND_CHATS_TO_NOTIFY[url] = subscribedChats.filter(
       (chatId) => chatId !== chat.id,
     );
-    bot.sendMessage(chat.id, `Server ${url} is successfully removed`);
+    await bot.sendMessage(chat.id, `Server ${url} is successfully removed`);
   } catch (error) {
-    bot.sendMessage(chat.id, error.message);
+    if (error instanceof Error) {
+      await bot.sendMessage(chat.id, error.message);
+    }
   }
   return;
 }
 
-function unsubscribeAll(msg) {
+async function unsubscribeAll(msg: Message) {
   const { chat } = msg;
 
   Object.keys(SERVERS_AND_CHATS_TO_NOTIFY).forEach((url) => {
@@ -153,7 +195,7 @@ function unsubscribeAll(msg) {
     );
   });
 
-  bot.sendMessage(chat.id, "Unsubscribe from all servers");
+  await bot.sendMessage(chat.id, "Unsubscribe from all servers");
 }
 
 bot.on("message", async (msg) => {
@@ -174,69 +216,83 @@ bot.on("message", async (msg) => {
   return bot.sendMessage(msg.chat.id, "Unknown command");
 });
 
-async function updateStatusMessage(url: string, chatId: string, text: string) {
-  if (!CHATS_MESSAGES[url]) {
-    CHATS_MESSAGES[url] = {};
+bot.on("pinned_message", async (msg) => {
+  const me = await bot.getMe();
+  const isItMyPin = msg.from?.id === me.id;
+  if (isItMyPin) {
+    await bot.deleteMessage(msg.chat.id, msg.message_id);
   }
-  const messageId = CHATS_MESSAGES[url]?.[chatId];
-  let message!: TelegramBot.Message | boolean;
+});
+
+async function editMessage(
+  chatId: number,
+  messageId: number | undefined,
+  text: string,
+) {
+  if (!messageId) {
+    return false;
+  }
   try {
-    if (CHATS_MESSAGES[url][chatId]) {
-      message = await bot.editMessageText(text, {
-        chat_id: chatId,
-        message_id: messageId,
-      });
-    }
+    const editedMessageResult = await bot.editMessageText(text, {
+      chat_id: chatId,
+      message_id: messageId,
+    });
+    return !!editedMessageResult;
   } catch (err) {
     console.log("can't edit message", { chatId, messageId, text }, err);
   }
+  return false;
+}
+
+async function updateStatusMessage(url: string, chatId: number, text: string) {
+  if (!CHATS_MESSAGES[url]) {
+    CHATS_MESSAGES[url] = new Map();
+  }
+  const server = CHATS_MESSAGES[url];
+  const messageId = server.get(chatId);
+  let messageWasEdited = await editMessage(chatId, messageId, text);
   try {
-    if (typeof message !== "object") {
-      if (messageId) {
-        try {
-          bot.deleteMessage(chatId, messageId);
-        } catch (err) {
-          console.log(`can't delete message`, { chatId, messageId }, err);
-        }
+    if (messageId && !messageWasEdited) {
+      try {
+        await bot.deleteMessage(chatId, messageId);
+      } catch (err) {
+        console.error(`can't delete message`, { chatId, messageId }, err);
       }
-      message = await bot.sendMessage(chatId, text, {
+    }
+    if (!messageId || !messageWasEdited) {
+      const newMessage = await bot.sendMessage(chatId, text, {
+        disable_notification: true,
+      });
+      server.set(chatId, newMessage.message_id);
+      await bot.pinChatMessage(chatId, newMessage.message_id, {
         disable_notification: true,
       });
     }
   } catch (err) {
-    console.log(`can't sent message`, { chatId, text }, err);
-  }
-  if (typeof message === "object") {
-    CHATS_MESSAGES[url][chatId] = message.message_id;
+    console.error(`Error: `, { chatId, text }, err);
   }
 }
 
-function onServerUpdate(url, err, res) {
+const CACHED_MESSAGES = new Map<string, string>();
+function onServerUpdate(url: string, err?: Error, res?: PingResponse) {
   if (err) {
-    console.log(err);
+    console.error(err);
     return;
   }
 
-  if (!Object.keys(res).length) {
-    console.log("Empty server response");
+  if (!res || !Object.keys(res).length) {
+    console.error("Empty server response");
     return;
   }
-  console.log(res);
   const prevStatus = CACHED_STATUSES.get(url);
   const status = parseServerStatus(res, prevStatus);
-
-  if (
-    getServerStatusMessage(url, status) !==
-    getServerStatusMessage(url, prevStatus)
-  ) {
+  const currentServerStatusMessage = getServerStatusMessage(url, status);
+  if (currentServerStatusMessage !== CACHED_MESSAGES.get(url)) {
     CACHED_STATUSES.set(url, status);
+    CACHED_MESSAGES.set(url, currentServerStatusMessage);
 
     SERVERS_AND_CHATS_TO_NOTIFY[url].forEach((chatId) => {
-      void updateStatusMessage(
-        url,
-        chatId,
-        getServerStatusMessage(url, status),
-      );
+      void updateStatusMessage(url, chatId, currentServerStatusMessage);
     });
   }
 }
@@ -252,4 +308,4 @@ setInterval(() => {
       );
     }
   });
-}, 2000);
+}, MINECRAFT_POLLING_INTERVAL_MS);
