@@ -4,11 +4,8 @@ import * as TelegramBot from "node-telegram-bot-api";
 import { isMinecraftServerAvailable } from "./is-minecraft-server-available";
 import { APP_CONFIG } from "./app-config";
 
-const TOKEN = process.env.TG_TOKEN;
-// Getting this ID from server if user is logging in
-const USER_MOCK_ID: string = "00000000-0000-0000-0000-000000000000";
-
-if (!TOKEN) throw new Error("You need to specify telegram bot token");
+if (!APP_CONFIG.token)
+  throw new Error("You need to specify telegram bot token");
 
 const SERVERS_AND_CHATS_TO_NOTIFY: Record<string, number[]> = {}; // { 'server url': [chatId, ...] }
 const CACHED_STATUSES = new Map<string, ServerStatus>();
@@ -17,7 +14,7 @@ const CACHED_MESSAGES = new Map<string, string>();
 
 console.log("init telegram bot");
 // Create a bot that uses 'polling' to fetch new updates
-const bot = new TelegramBot(TOKEN, { polling: true });
+const bot = new TelegramBot(APP_CONFIG.token, { polling: true });
 
 bot.setMyCommands([
   { command: "/add", description: "Add server for live status updates" },
@@ -64,7 +61,7 @@ function parseServerStatus(
     players: { max, sample = [] },
   } = res;
   const online = sample
-    .filter((player) => player.id !== USER_MOCK_ID)
+    .filter((player) => player.id !== APP_CONFIG.userMockId)
     .map((player) => ({
       ...player,
       lastOnline: new Date(),
