@@ -5,15 +5,7 @@ import { isMinecraftServerAvailable } from "./is-minecraft-server-available";
 import { APP_CONFIG } from "./app-config";
 import { editSendMessage } from "./edit-send-message";
 import { parseServerStatus, ServerStatus } from "./parse-server-status";
-
-function parseUrlForHostAndPort(serverUrl: string) {
-  const [host, port] = serverUrl.split(":");
-  let portNumber: number | undefined = +port;
-  if (portNumber <= 0 || isNaN(portNumber)) {
-    portNumber = undefined;
-  }
-  return { host, port: portNumber };
-}
+import { parseUrlForHostAndPort } from "./utils/parse-url-for-host-and-port";
 
 function start() {
   if (!APP_CONFIG.token)
