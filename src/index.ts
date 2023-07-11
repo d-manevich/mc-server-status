@@ -3,6 +3,7 @@ import { MinecraftServer, PingResponse } from "mcping-js";
 import * as TelegramBot from "node-telegram-bot-api";
 import { isMinecraftServerAvailable } from "./is-minecraft-server-available";
 import { APP_CONFIG } from "./app-config";
+import { editSendMessage } from "./edit-send-message";
 
 function start() {
   if (!APP_CONFIG.token)
@@ -170,26 +171,6 @@ function start() {
     await bot.sendMessage(chatId, "Unsubscribe from all servers");
   }
 
-  async function editMessage(
-    chatId: number,
-    messageId: number | undefined,
-    text: string,
-  ) {
-    if (!messageId) {
-      return false;
-    }
-    try {
-      const editedMessageResult = await bot.editMessageText(text, {
-        chat_id: chatId,
-        message_id: messageId,
-      });
-      return !!editedMessageResult;
-    } catch (err) {
-      console.log("can't edit message", { chatId, messageId, text }, err);
-    }
-    return false;
-  }
-
   async function updateStatusMessage(
     url: string,
     chatId: number,
@@ -200,26 +181,10 @@ function start() {
     }
     const server = CHATS_MESSAGES[url];
     const messageId = server.get(chatId);
-    let messageWasEdited = await editMessage(chatId, messageId, text);
-    try {
-      if (messageId && !messageWasEdited) {
-        try {
-          await bot.deleteMessage(chatId, messageId);
-        } catch (err) {
-          console.error(`can't delete message`, { chatId, messageId }, err);
-        }
-      }
-      if (!messageId || !messageWasEdited) {
-        const newMessage = await bot.sendMessage(chatId, text, {
-          disable_notification: true,
-        });
-        server.set(chatId, newMessage.message_id);
-        await bot.pinChatMessage(chatId, newMessage.message_id, {
-          disable_notification: true,
-        });
-      }
-    } catch (err) {
-      console.error(`Error: `, { chatId, text }, err);
+    const message = await editSendMessage(bot, chatId, text, messageId);
+    if (message) {
+      // TODO: Notify the channel if it failed to update or send a message?
+      server.set(chatId, message.message_id);
     }
   }
 
