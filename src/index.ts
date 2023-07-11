@@ -17,6 +17,7 @@ if (!TOKEN) throw new Error("You need to specify telegram bot token");
 const SERVERS_AND_CHATS_TO_NOTIFY: Record<string, number[]> = {}; // { 'server url': [chatId, ...] }
 const CACHED_STATUSES = new Map<string, ServerStatus>();
 const CHATS_MESSAGES: Record<string, Map<number, number>> = {}; // { 'server url': { chatId: messageId } }
+const CACHED_MESSAGES = new Map<string, string>();
 
 console.log("init telegram bot");
 // Create a bot that uses 'polling' to fetch new updates
@@ -239,7 +240,6 @@ async function updateStatusMessage(url: string, chatId: number, text: string) {
   }
 }
 
-const CACHED_MESSAGES = new Map<string, string>();
 function onServerUpdate(url: string, err?: Error, res?: PingResponse) {
   if (err) {
     console.error(err);
