@@ -1,13 +1,9 @@
 import { getServerStatusMessage, ServerStatus } from "./update-server-status";
 import { MinecraftServer, PingResponse } from "mcping-js";
 import * as TelegramBot from "node-telegram-bot-api";
+import { isMinecraftServerAvailable } from "./is-minecraft-server-available";
+import { APP_CONFIG } from "./app-config";
 
-const TIMEOUT = 10000;
-const MINECRAFT_POLLING_INTERVAL_MS = 2000;
-
-const PROTOCOL_VERSION: number = process.env.PROTOCOL_VERSION
-  ? Number(process.env.PROTOCOL_VERSION)
-  : 763; // 1.7.1 from https://wiki.vg/Protocol_version_numbers
 const TOKEN = process.env.TG_TOKEN;
 // Getting this ID from server if user is logging in
 const USER_MOCK_ID: string = "00000000-0000-0000-0000-000000000000";
@@ -93,29 +89,6 @@ function parseUrlForHostAndPort(serverUrl: string) {
     portNumber = undefined;
   }
   return { host, port: portNumber };
-}
-
-function isMinecraftServerAvailable(
-  serverUrl: string,
-  host: string,
-  port: number | undefined,
-) {
-  return new Promise<boolean>((resolve, reject) => {
-    console.log(`trying to connect to server ${serverUrl}`);
-
-    const serverTest = new MinecraftServer(host, port);
-
-    console.log(`trying to ping server ${serverUrl}`);
-    serverTest.ping(TIMEOUT, PROTOCOL_VERSION, (err, res) => {
-      console.log({ serverUrl, err, res });
-      if (err) resolve(false);
-      else if (res) {
-        resolve(true);
-      }
-
-      reject(new Error("Server fetch unknown error"));
-    });
-  });
 }
 
 async function subscribe(chatId: number, url: string) {
@@ -269,9 +242,9 @@ setInterval(() => {
     if (subscribedChats.length) {
       const [host, port] = url.split(":");
       const server = new MinecraftServer(host, Number(port));
-      server.ping(TIMEOUT, PROTOCOL_VERSION, (err, res) =>
+      server.ping(APP_CONFIG.timeout, APP_CONFIG.protocolVersion, (err, res) =>
         onServerUpdate(url, err, res),
       );
     }
   });
-}, MINECRAFT_POLLING_INTERVAL_MS);
+}, APP_CONFIG.minecraftPollingIntervalMs);
