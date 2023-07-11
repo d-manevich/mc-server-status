@@ -1,20 +1,7 @@
 import { formatDistance, differenceInMinutes } from "date-fns";
+import { PlayerStatus, ServerStatus } from "./parse-server-status";
 
 const THRESHOLD_TO_SHOW_OFFLINE_PLAYERS_MINS = 60;
-
-interface PlayerStatus {
-  id: string;
-  name: string;
-  lastOnline: Date;
-}
-
-export interface ServerStatus {
-  online: PlayerStatus[];
-  offline: PlayerStatus[];
-  server: {
-    max: number;
-  };
-}
 
 function formatOnlinePlayer(player: PlayerStatus) {
   return `🟢${player.name}`;

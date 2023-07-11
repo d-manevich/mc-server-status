@@ -1,12 +1,19 @@
-import {
-  getServerStatusMessage,
-  ServerStatus,
-} from "./get-server-status-message";
+import { getServerStatusMessage } from "./get-server-status-message";
 import { MinecraftServer, PingResponse } from "mcping-js";
 import * as TelegramBot from "node-telegram-bot-api";
 import { isMinecraftServerAvailable } from "./is-minecraft-server-available";
 import { APP_CONFIG } from "./app-config";
 import { editSendMessage } from "./edit-send-message";
+import { parseServerStatus, ServerStatus } from "./parse-server-status";
+
+function parseUrlForHostAndPort(serverUrl: string) {
+  const [host, port] = serverUrl.split(":");
+  let portNumber: number | undefined = +port;
+  if (portNumber <= 0 || isNaN(portNumber)) {
+    portNumber = undefined;
+  }
+  return { host, port: portNumber };
+}
 
 function start() {
   if (!APP_CONFIG.token)
@@ -60,41 +67,6 @@ function start() {
       }
     }
   });
-
-  function parseServerStatus(
-    res: PingResponse,
-    prevStatus?: ServerStatus,
-  ): ServerStatus {
-    const {
-      players: { max, sample = [] },
-    } = res;
-    const online = sample
-      .filter((player) => player.id !== APP_CONFIG.userMockId)
-      .map((player) => ({
-        ...player,
-        lastOnline: new Date(),
-      }));
-    const offline = [
-      ...(prevStatus?.online || []),
-      ...(prevStatus?.offline || []),
-    ].filter((p) => online.every((onlinePlayer) => onlinePlayer.id !== p.id));
-    return {
-      server: {
-        max,
-      },
-      online,
-      offline,
-    };
-  }
-
-  function parseUrlForHostAndPort(serverUrl: string) {
-    const [host, port] = serverUrl.split(":");
-    let portNumber: number | undefined = +port;
-    if (portNumber <= 0 || isNaN(portNumber)) {
-      portNumber = undefined;
-    }
-    return { host, port: portNumber };
-  }
 
   async function subscribe(chatId: number, url: string) {
     try {
