@@ -1,7 +1,6 @@
 import { formatDistance, differenceInMinutes } from "date-fns";
 import { PlayerStatus, ServerStatus } from "./parse-server-status";
-
-const THRESHOLD_TO_SHOW_OFFLINE_PLAYERS_MINS = 60;
+import { APP_CONFIG } from "./app-config";
 
 function formatOnlinePlayer(player: PlayerStatus) {
   return `🟢${player.name}`;
@@ -32,7 +31,7 @@ function getOfflineSection(offline: PlayerStatus[]) {
   const filteredOffline = offline.filter(
     (p) =>
       Math.abs(differenceInMinutes(p.lastOnline, new Date())) <
-      THRESHOLD_TO_SHOW_OFFLINE_PLAYERS_MINS,
+      APP_CONFIG.thresholdToShowOfflinePlayersMins,
   );
   if (!filteredOffline.length) {
     return "";
