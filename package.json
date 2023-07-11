@@ -2,10 +2,10 @@
   "name": "mc-server-status",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
-    "start": "ts-node index.ts",
-    "build": "tsc",
+    "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts",
+    "start": "ts-node --transpileOnly src/index.ts",
+    "check-types": "tsc --noEmit",
     "prettier": "prettier --write '**/*.ts'",
     "prettier:check": "prettier --check '**/*.ts'",
     "test": "vitest"
@@ -21,10 +21,10 @@
     "node-telegram-bot-api": "^0.61.0"
   },
   "devDependencies": {
-    "@types/date-fns": "^2.6.0",
     "@types/mcping-js": "^1.5.1",
     "@types/node": "^20.4.1",
     "@types/node-telegram-bot-api": "^0.61.6",
+    "nodemon": "^3.0.1",
     "prettier": "^3.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.1.6",

@@ -1,7 +1,4 @@
-import {
-  getServerStatusMessage,
-  ServerStatus,
-} from "./src/update-server-status";
+import { getServerStatusMessage, ServerStatus } from "./update-server-status";
 import { MinecraftServer, PingResponse } from "mcping-js";
 import * as TelegramBot from "node-telegram-bot-api";
 
@@ -12,7 +9,6 @@ const PROTOCOL_VERSION: number = process.env.PROTOCOL_VERSION
   ? Number(process.env.PROTOCOL_VERSION)
   : 763; // 1.7.1 from https://wiki.vg/Protocol_version_numbers
 const TOKEN = process.env.TG_TOKEN;
-
 // Getting this ID from server if user is logging in
 const USER_MOCK_ID: string = "00000000-0000-0000-0000-000000000000";
 
