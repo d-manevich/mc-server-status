@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { getServerStatusMessage, ServerStatus } from "./update-server-status";
+import {
+  getServerStatusMessage,
+  ServerStatus,
+} from "./get-server-status-message";
 
 describe("getServerStatusMessage", () => {
   let serverStatusStub = getServerStatusStub();

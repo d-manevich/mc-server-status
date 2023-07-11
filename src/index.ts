@@ -1,4 +1,7 @@
-import { getServerStatusMessage, ServerStatus } from "./update-server-status";
+import {
+  getServerStatusMessage,
+  ServerStatus,
+} from "./get-server-status-message";
 import { MinecraftServer, PingResponse } from "mcping-js";
 import * as TelegramBot from "node-telegram-bot-api";
 import { isMinecraftServerAvailable } from "./is-minecraft-server-available";
