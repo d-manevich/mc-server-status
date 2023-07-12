@@ -1,4 +1,7 @@
-import { getServerStatusMessage } from "./get-server-status-message";
+import {
+  getServerStatusMessage,
+  getPlayersStatSection,
+} from "./get-server-status-message";
 import { MinecraftServer, PingResponse } from "mcping-js";
 import * as TelegramBot from "node-telegram-bot-api";
 import { isMinecraftServerAvailable } from "./is-minecraft-server-available";
@@ -73,6 +76,8 @@ function start() {
       description: "Delete server from live status updates",
     },
     { command: "/stop", description: "Stop live status" },
+    { command: "/stat", description: "All time online stats" },
+    { command: "/month", description: "Online stats for this month" },
   ]);
 
   bot.onText(/\/add (.+)/, async (msg, match) => {
@@ -93,6 +98,34 @@ function start() {
 
   bot.onText(/\/stop/, async (msg) => {
     await unsubscribeAll(msg.chat.id);
+  });
+
+  bot.onText(/\/month/, async (msg) => {
+    const servers = store.getAll(msg.chat.id);
+    for (const server of servers) {
+      void bot.sendMessage(
+        msg.chat.id,
+        [
+          "*Online stats for this month*",
+          getPlayersStatSection(server.players, Infinity),
+        ].join("\n"),
+        { parse_mode: "Markdown" },
+      );
+    }
+  });
+
+  bot.onText(/\/stat/, async (msg) => {
+    const servers = store.getAll(msg.chat.id);
+    for (const server of servers) {
+      void bot.sendMessage(
+        msg.chat.id,
+        [
+          "*All time online stats*",
+          getPlayersStatSection(server.players, Infinity),
+        ].join("\n"),
+        { parse_mode: "Markdown" },
+      );
+    }
   });
 
   bot.on("pinned_message", async (msg) => {

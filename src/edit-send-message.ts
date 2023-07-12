@@ -10,6 +10,7 @@ export async function editSendMessage(
   if (messageId) {
     try {
       const message = await bot.editMessageText(text, {
+        parse_mode: "Markdown",
         chat_id: chatId,
         message_id: messageId,
       });
@@ -30,6 +31,7 @@ export async function editSendMessage(
   try {
     const newMessage = await bot.sendMessage(chatId, text, {
       disable_notification: true,
+      parse_mode: "Markdown",
     });
     await bot.pinChatMessage(chatId, newMessage.message_id, {
       disable_notification: true,

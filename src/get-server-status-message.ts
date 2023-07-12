@@ -1,7 +1,12 @@
-import { formatDistance, differenceInMinutes } from "date-fns";
+import {
+  formatDistance,
+  differenceInMinutes,
+  formatDistanceToNow,
+} from "date-fns";
 import { APP_CONFIG } from "./app-config";
 import { McServer, PlayerStatus } from "./models/mc-server";
 import { getServerUrl } from "./get-server-url";
+import { getYearMonthHash } from "./parse-server-status";
 
 function formatOnlinePlayer(player: PlayerStatus) {
   return `🟢${player.name}`;
@@ -49,13 +54,41 @@ function getPlayerListSection(online: PlayerStatus[], offline: PlayerStatus[]) {
     : "";
 }
 
+export function getPlayersStatSection(
+  players: PlayerStatus[],
+  count = 3,
+  isAllTime = false,
+) {
+  const currentYearMonth = getYearMonthHash();
+  const medals = ["🥇", "🥈", "🥉"];
+  return players
+    .map((player) => ({
+      player,
+      online:
+        (isAllTime
+          ? Object.values(player.onlineByMonth).reduce((sum, v) => sum + v, 0)
+          : player.onlineByMonth[currentYearMonth]) || 0,
+    }))
+    .sort((a, b) => a.online - b.online)
+    .slice(0, count)
+    .map(
+      (p, idx) =>
+        `${medals[idx] || `${idx + 1}.`} ${
+          p.player.name
+        } ~ ${formatDistanceToNow(new Date(Date.now() - p.online))}`,
+    )
+    .join("\n");
+}
+
 export function getServerStatusMessage(server: McServer) {
   if (!server) return "";
   const online = server.players.filter((p) => p.isOnline);
   const offline = server.players.filter((p) => !p.isOnline);
   return [
-    getServerUrl(server),
-    `Online: ${online.length}/${server.maxPlayers}`,
+    `*${getServerUrl(server)}* *${online.length}/${server.maxPlayers}*`,
     getPlayerListSection(online, offline),
+    "",
+    "*Top 3 online this month*",
+    getPlayersStatSection(server.players),
   ].join("\n");
 }

@@ -2,6 +2,10 @@ import { PingResponse } from "mcping-js";
 import { APP_CONFIG } from "./app-config";
 import { McServer } from "./models/mc-server";
 
+export function getYearMonthHash(date = new Date()) {
+  return date.getFullYear() + "-" + date.getMonth();
+}
+
 export function parseServerStatus(
   res: PingResponse,
   mcServer?: McServer,
@@ -13,8 +17,7 @@ export function parseServerStatus(
     (player) => player.id !== APP_CONFIG.userMockId,
   );
   const players = mcServer?.players.map((p) => ({ ...p })) || [];
-  const currentYearMonthHash =
-    new Date().getFullYear() + "-" + new Date().getMonth();
+  const currentYearMonthHash = getYearMonthHash();
   for (const player of players) {
     const pingPlayerIdx = pingPlayers.findIndex((p) => p.id === player.id);
     pingPlayers.splice(pingPlayerIdx, 1);
