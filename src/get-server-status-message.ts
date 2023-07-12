@@ -25,7 +25,7 @@ function formatOfflinePlayer(player: PlayerStatus) {
 }
 
 function sortPlayersByLastOnline(players: PlayerStatus[]) {
-  players.sort((a, b) => +b.lastOnline - +a.lastOnline);
+  players.sort((a, b) => +new Date(b.lastOnline) - +new Date(a.lastOnline));
   return players;
 }
 function getOnlineSection(online: PlayerStatus[]) {
@@ -77,7 +77,7 @@ export function getPlayersStatSection(
     .slice(0, count)
     .map(
       (p, idx) =>
-        `${medals[idx] || `${idx + 1}.`} ${
+        `${medals[idx] || ` *${idx + 1}.* `} ${
           p.player.name
         } ~ ${formatDistanceToNow(new Date(Date.now() - p.online))}`,
     )
@@ -91,8 +91,8 @@ export function getServerStatusMessage(server: McServer) {
   return [
     `*${getServerUrl(server)}* *${online.length}/${server.maxPlayers}*`,
     getPlayerListSection(online, offline),
-    "",
-    "*Top 3 online this month*",
-    getPlayersStatSection(server.players),
+    ...(server.players.length
+      ? ["", "*Top 3 online this month*", getPlayersStatSection(server.players)]
+      : []),
   ].join("\n");
 }

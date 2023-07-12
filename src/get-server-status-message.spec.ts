@@ -11,13 +11,17 @@ describe("getServerStatusMessage", () => {
   it("offline + online", () => {
     const result = getServerStatusMessage(serverStatusStub);
     expect(result).toMatchInlineSnapshot(`
-      "test.goodmc.org
-      Online: 2/30
+      "*test.goodmc.org* *2/30*
       🟢player1
       🟢player2
       ⚪player5 ~ less than a minute ago
       ⚪player3 ~ 1 minute ago
-      ⚪player4 ~ 30 minutes ago"
+      ⚪player4 ~ 30 minutes ago
+      
+      *Top 3 online this month*
+      🥇 player1 ~ less than a minute
+      🥈 player2 ~ less than a minute
+      🥉 player3 ~ less than a minute"
     `);
   });
 
@@ -25,8 +29,7 @@ describe("getServerStatusMessage", () => {
     serverStatusStub.players = [];
     const result = getServerStatusMessage(serverStatusStub);
     expect(result).toMatchInlineSnapshot(`
-      "test.goodmc.org
-      Online: 0/30
+      "*test.goodmc.org* *0/30*
       "
     `);
   });
@@ -37,11 +40,15 @@ describe("getServerStatusMessage", () => {
     );
     const result = getServerStatusMessage(serverStatusStub);
     expect(result).toMatchInlineSnapshot(`
-      "test.goodmc.org
-      Online: 0/30
+      "*test.goodmc.org* *0/30*
       ⚪player5 ~ less than a minute ago
       ⚪player3 ~ 1 minute ago
-      ⚪player4 ~ 30 minutes ago"
+      ⚪player4 ~ 30 minutes ago
+
+      *Top 3 online this month*
+      🥇 player3 ~ less than a minute
+      🥈 player4 ~ less than a minute
+      🥉 player5 ~ less than a minute"
     `);
   });
 
@@ -51,10 +58,13 @@ describe("getServerStatusMessage", () => {
     );
     const result = getServerStatusMessage(serverStatusStub);
     expect(result).toMatchInlineSnapshot(`
-      "test.goodmc.org
-      Online: 2/30
+      "*test.goodmc.org* *2/30*
       🟢player1
-      🟢player2"
+      🟢player2
+
+      *Top 3 online this month*
+      🥇 player1 ~ less than a minute
+      🥈 player2 ~ less than a minute"
     `);
   });
 });
