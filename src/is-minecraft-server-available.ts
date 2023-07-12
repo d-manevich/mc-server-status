@@ -14,7 +14,7 @@ export function isMinecraftServerAvailable(
     console.log(`trying to ping server ${serverUrl}`);
     serverTest.ping(
       APP_CONFIG.timeout,
-      APP_CONFIG.protocolVersion,
+      APP_CONFIG.defaultProtocolVersion,
       (err, res) => {
         console.log({ serverUrl, err, res });
         if (err) resolve(false);

@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  getServerStatusMessage,
-  ServerStatus,
-} from "./get-server-status-message";
+import { getServerStatusMessage } from "./get-server-status-message";
+import { McServer } from "./models/mc-server";
 
 describe("getServerStatusMessage", () => {
   let serverStatusStub = getServerStatusStub();
@@ -11,7 +9,7 @@ describe("getServerStatusMessage", () => {
   });
 
   it("offline + online", () => {
-    const result = getServerStatusMessage("test.goodmc.org", serverStatusStub);
+    const result = getServerStatusMessage(serverStatusStub);
     expect(result).toMatchInlineSnapshot(`
       "test.goodmc.org
       Online: 2/30
@@ -24,9 +22,8 @@ describe("getServerStatusMessage", () => {
   });
 
   it("no online no offline", () => {
-    serverStatusStub.online = [];
-    serverStatusStub.offline = [];
-    const result = getServerStatusMessage("test.goodmc.org", serverStatusStub);
+    serverStatusStub.players = [];
+    const result = getServerStatusMessage(serverStatusStub);
     expect(result).toMatchInlineSnapshot(`
       "test.goodmc.org
       Online: 0/30
@@ -35,8 +32,10 @@ describe("getServerStatusMessage", () => {
   });
 
   it("offline only", () => {
-    serverStatusStub.online = [];
-    const result = getServerStatusMessage("test.goodmc.org", serverStatusStub);
+    serverStatusStub.players = serverStatusStub.players.filter(
+      (p) => !p.isOnline,
+    );
+    const result = getServerStatusMessage(serverStatusStub);
     expect(result).toMatchInlineSnapshot(`
       "test.goodmc.org
       Online: 0/30
@@ -47,8 +46,10 @@ describe("getServerStatusMessage", () => {
   });
 
   it("online only", () => {
-    serverStatusStub.offline = [];
-    const result = getServerStatusMessage("test.goodmc.org", serverStatusStub);
+    serverStatusStub.players = serverStatusStub.players.filter(
+      (p) => p.isOnline,
+    );
+    const result = getServerStatusMessage(serverStatusStub);
     expect(result).toMatchInlineSnapshot(`
       "test.goodmc.org
       Online: 2/30
@@ -58,7 +59,7 @@ describe("getServerStatusMessage", () => {
   });
 });
 
-function getServerStatusStub(): ServerStatus {
+function getServerStatusStub(): McServer {
   const _30minsAgo = new Date();
   _30minsAgo.setMinutes(new Date().getMinutes() - 30);
   const _1minAgo = new Date();
@@ -67,39 +68,52 @@ function getServerStatusStub(): ServerStatus {
   _2hoursAgo.setHours(new Date().getHours() - 2);
 
   return {
-    server: { max: 30 },
-    online: [
+    maxPlayers: 30,
+    chats: [],
+    host: "test.goodmc.org",
+    version: 1,
+    players: [
       {
         lastOnline: new Date(),
         name: "player1",
         id: "aaa",
+        isOnline: true,
+        onlineByMonth: {},
       },
       {
         lastOnline: new Date(),
         name: "player2",
         id: "bbb",
+        isOnline: true,
+        onlineByMonth: {},
       },
-    ],
-    offline: [
       {
         lastOnline: _1minAgo,
         name: "player3",
         id: "basd",
+        isOnline: false,
+        onlineByMonth: {},
       },
       {
         lastOnline: _30minsAgo,
         name: "player4",
         id: "ccc",
+        isOnline: false,
+        onlineByMonth: {},
       },
       {
         lastOnline: new Date(),
         name: "player5",
         id: "sasd",
+        isOnline: false,
+        onlineByMonth: {},
       },
       {
         lastOnline: _2hoursAgo,
         name: "player6",
         id: "sasdas",
+        isOnline: false,
+        onlineByMonth: {},
       },
     ],
   };

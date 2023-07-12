@@ -4,17 +4,63 @@ import * as TelegramBot from "node-telegram-bot-api";
 import { isMinecraftServerAvailable } from "./is-minecraft-server-available";
 import { APP_CONFIG } from "./app-config";
 import { editSendMessage } from "./edit-send-message";
-import { parseServerStatus, ServerStatus } from "./parse-server-status";
+import { parseServerStatus } from "./parse-server-status";
 import { parseUrlForHostAndPort } from "./utils/parse-url-for-host-and-port";
+import { McServer } from "./models/mc-server";
+import { getServerUrl } from "./get-server-url";
+
+function getServerHash(server: Pick<McServer, "host" | "port" | "version">) {
+  return getServerUrl(server) + server.version;
+}
+
+class McStore {
+  private servers = new Map<string, McServer>();
+
+  init(url: string, version: number) {
+    const { host, port } = parseUrlForHostAndPort(url);
+    const hash = getServerHash({ host, port, version });
+    if (!this.servers.has(hash))
+      this.servers.set(hash, {
+        host,
+        port,
+        version,
+        maxPlayers: 0,
+        players: [],
+        chats: [],
+      });
+    return this.servers.get(hash) as McServer;
+  }
+
+  get(url: string, chatId: number) {
+    const { host, port } = parseUrlForHostAndPort(url);
+    return Array.from(this.servers.values()).find(
+      (s) =>
+        s.host === host &&
+        s.port === port &&
+        s.chats.some((c) => c.chatId === chatId),
+    );
+  }
+
+  getAll(chatId?: number) {
+    if (!chatId) {
+      return Array.from(this.servers.values());
+    }
+    return Array.from(this.servers.values()).filter((s) =>
+      s.chats.some((c) => c.chatId === chatId),
+    );
+  }
+
+  del({ host, port, version }: McServer) {
+    const hash = getServerHash({ host, port, version });
+    this.servers.delete(hash);
+  }
+}
 
 function start() {
   if (!APP_CONFIG.token)
     throw new Error("You need to specify telegram bot token");
 
-  const SERVERS_AND_CHATS_TO_NOTIFY: Record<string, number[]> = {}; // { 'server url': [chatId, ...] }
-  const CACHED_STATUSES = new Map<string, ServerStatus>();
-  const CHATS_MESSAGES: Record<string, Map<number, number>> = {}; // { 'server url': { chatId: messageId } }
-  const CACHED_MESSAGES = new Map<string, string>();
+  const store = new McStore();
 
   console.log("init telegram bot");
   // Create a bot that uses 'polling' to fetch new updates
@@ -31,7 +77,11 @@ function start() {
 
   bot.onText(/\/add (.+)/, async (msg, match) => {
     if (match?.[1]) {
-      await subscribe(msg.chat.id, match[1]);
+      await subscribe(
+        msg.chat.id,
+        match[1],
+        match[2] ? Number(match[2]) : APP_CONFIG.defaultProtocolVersion,
+      );
     }
   });
 
@@ -60,7 +110,11 @@ function start() {
     }
   });
 
-  async function subscribe(chatId: number, url: string) {
+  async function subscribe(
+    chatId: number,
+    url: string,
+    version: number = APP_CONFIG.defaultProtocolVersion,
+  ) {
     try {
       const { host, port } = parseUrlForHostAndPort(url);
       try {
@@ -75,28 +129,13 @@ function start() {
       } catch (error) {
         throw new Error("Invalid minecraft server");
       }
-
-      const subscribedChats = SERVERS_AND_CHATS_TO_NOTIFY[url];
-      if (
-        subscribedChats?.find((subscribedChat) => subscribedChat === chatId)
-      ) {
+      const mcServer = store.init(url, version);
+      const mcChat = mcServer.chats.find((c) => c.chatId === chatId);
+      if (mcChat) {
         throw new Error(`${url} is already added`);
       }
-
-      if (!subscribedChats) {
-        SERVERS_AND_CHATS_TO_NOTIFY[url] = [chatId];
-      } else {
-        SERVERS_AND_CHATS_TO_NOTIFY[url].push(chatId);
-      }
+      mcServer.chats.push({ chatId });
       await bot.sendMessage(chatId, `Server ${url} is successfully added`);
-
-      let cachedStatus = CACHED_STATUSES.get(url);
-      if (cachedStatus) {
-        await bot.sendMessage(
-          chatId,
-          getServerStatusMessage(url, cachedStatus),
-        );
-      }
     } catch (error) {
       if (error instanceof Error) {
         await bot.sendMessage(chatId, error.message);
@@ -107,90 +146,81 @@ function start() {
 
   async function unsubscribe(chatId: number, url: string) {
     try {
-      const subscribedChats = SERVERS_AND_CHATS_TO_NOTIFY[url];
-      if (
-        !subscribedChats ||
-        !subscribedChats.find((subscribedChat) => subscribedChat === chatId)
-      ) {
+      const mcServer = store.get(url, chatId);
+      if (!mcServer) {
         throw new Error(`${url} was not added`);
       }
-
-      SERVERS_AND_CHATS_TO_NOTIFY[url] = subscribedChats.filter(
-        (chatId) => chatId !== chatId,
-      );
+      if (mcServer.chats.length === 1) {
+        store.del(mcServer);
+      } else {
+        mcServer.chats.splice(
+          mcServer.chats.findIndex((c) => c.chatId === chatId),
+          1,
+        );
+      }
       await bot.sendMessage(chatId, `Server ${url} is successfully removed`);
     } catch (error) {
       if (error instanceof Error) {
         await bot.sendMessage(chatId, error.message);
       }
     }
-    return;
   }
 
   async function unsubscribeAll(chatId: number) {
-    Object.keys(SERVERS_AND_CHATS_TO_NOTIFY).forEach((url) => {
-      const chats = SERVERS_AND_CHATS_TO_NOTIFY[url];
-      SERVERS_AND_CHATS_TO_NOTIFY[url] = chats.filter(
-        (chatId) => chatId !== chatId,
-      );
-    });
-
+    const mcServers = store.getAll(chatId);
+    for (const mcServer of mcServers) {
+      store.del(mcServer);
+    }
     await bot.sendMessage(chatId, "Unsubscribe from all servers");
   }
 
-  async function updateStatusMessage(
-    url: string,
-    chatId: number,
-    text: string,
+  async function onServerUpdate(
+    server: McServer,
+    res?: PingResponse,
+    err?: Error,
   ) {
-    if (!CHATS_MESSAGES[url]) {
-      CHATS_MESSAGES[url] = new Map();
-    }
-    const server = CHATS_MESSAGES[url];
-    const messageId = server.get(chatId);
-    const message = await editSendMessage(bot, chatId, text, messageId);
-    if (message) {
-      // TODO: Notify the channel if it failed to update or send a message?
-      server.set(chatId, message.message_id);
-    }
-  }
-
-  function onServerUpdate(url: string, err?: Error, res?: PingResponse) {
     if (err) {
       console.error(err);
       return;
     }
-
     if (!res || !Object.keys(res).length) {
       console.error("Empty server response");
       return;
     }
-    const prevStatus = CACHED_STATUSES.get(url);
-    const status = parseServerStatus(res, prevStatus);
-    const currentServerStatusMessage = getServerStatusMessage(url, status);
-    if (currentServerStatusMessage !== CACHED_MESSAGES.get(url)) {
-      CACHED_STATUSES.set(url, status);
-      CACHED_MESSAGES.set(url, currentServerStatusMessage);
-
-      SERVERS_AND_CHATS_TO_NOTIFY[url].forEach((chatId) => {
-        void updateStatusMessage(url, chatId, currentServerStatusMessage);
-      });
+    const oldServerStatusMessage = getServerStatusMessage(server);
+    const newServerStatus = parseServerStatus(res, server);
+    server.maxPlayers = newServerStatus.maxPlayers;
+    server.players = newServerStatus.players;
+    const serverStatusMessage = getServerStatusMessage(server);
+    if (serverStatusMessage !== oldServerStatusMessage) {
+      await Promise.allSettled(
+        server.chats.map(async (c) => {
+          const message = await editSendMessage(
+            bot,
+            c.chatId,
+            serverStatusMessage,
+            c.messageId,
+          );
+          if (message) {
+            // TODO: Notify the channel if it failed to update or send a message?
+            c.messageId = message.message_id;
+          }
+        }),
+      );
     }
   }
 
   setInterval(() => {
-    Object.keys(SERVERS_AND_CHATS_TO_NOTIFY).forEach((url) => {
-      const subscribedChats = SERVERS_AND_CHATS_TO_NOTIFY[url];
-      if (subscribedChats.length) {
-        const [host, port] = url.split(":");
-        const server = new MinecraftServer(host, Number(port));
+    void Promise.allSettled(
+      store.getAll().map((s) => {
+        const server = new MinecraftServer(s.host, s.port);
         server.ping(
           APP_CONFIG.timeout,
-          APP_CONFIG.protocolVersion,
-          (err, res) => onServerUpdate(url, err, res),
+          APP_CONFIG.defaultProtocolVersion,
+          (err, res) => onServerUpdate(s, res, err),
         );
-      }
-    });
+      }),
+    );
   }, APP_CONFIG.minecraftPollingIntervalMs);
 }
 

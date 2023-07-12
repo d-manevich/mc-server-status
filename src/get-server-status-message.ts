@@ -1,6 +1,7 @@
 import { formatDistance, differenceInMinutes } from "date-fns";
-import { PlayerStatus, ServerStatus } from "./parse-server-status";
 import { APP_CONFIG } from "./app-config";
+import { McServer, PlayerStatus } from "./models/mc-server";
+import { getServerUrl } from "./get-server-url";
 
 function formatOnlinePlayer(player: PlayerStatus) {
   return `🟢${player.name}`;
@@ -48,10 +49,13 @@ function getPlayerListSection(online: PlayerStatus[], offline: PlayerStatus[]) {
     : "";
 }
 
-export function getServerStatusMessage(url: string, status?: ServerStatus) {
-  if (!status) return "";
-  const { online, offline, server } = status;
-  return `${url}
-Online: ${online.length}/${server.max}
-${getPlayerListSection(online, offline)}`;
+export function getServerStatusMessage(server: McServer) {
+  if (!server) return "";
+  const online = server.players.filter((p) => p.isOnline);
+  const offline = server.players.filter((p) => !p.isOnline);
+  return [
+    getServerUrl(server),
+    `Online: ${online.length}/${server.maxPlayers}`,
+    getPlayerListSection(online, offline),
+  ].join("\n");
 }
