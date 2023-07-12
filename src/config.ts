@@ -11,6 +11,6 @@ export const CONFIG = {
   thresholdToShowOfflinePlayersMins: 60,
   cache: {
     filePath: path.join(process.cwd(), "store-cache.json"),
-    intervalMs: 60_000,
+    intervalMs: 1_000,
   },
 };

@@ -11,7 +11,6 @@ import { parseServerStatus } from "./parse-server-status";
 import { parseUrlForHostAndPort } from "./utils/parse-url-for-host-and-port";
 import { McServer } from "./models/mc-server";
 import { getServerUrl } from "./get-server-url";
-import * as path from "path";
 import * as fs from "fs";
 
 function getServerHash(server: Pick<McServer, "host" | "port" | "version">) {

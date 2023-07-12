@@ -13,9 +13,13 @@ function formatOnlinePlayer(player: PlayerStatus) {
 }
 
 function formatOfflinePlayer(player: PlayerStatus) {
-  const formattedDuration = formatDistance(player.lastOnline, new Date(), {
-    addSuffix: true,
-  });
+  const formattedDuration = formatDistance(
+    new Date(player.lastOnline),
+    new Date(),
+    {
+      addSuffix: true,
+    },
+  );
 
   return `⚪${player.name} ~ ${formattedDuration}`;
 }
@@ -36,7 +40,7 @@ function getOnlineSection(online: PlayerStatus[]) {
 function getOfflineSection(offline: PlayerStatus[]) {
   const filteredOffline = offline.filter(
     (p) =>
-      Math.abs(differenceInMinutes(p.lastOnline, new Date())) <
+      Math.abs(differenceInMinutes(new Date(p.lastOnline), new Date())) <
       CONFIG.thresholdToShowOfflinePlayersMins,
   );
   if (!filteredOffline.length) {
@@ -69,7 +73,7 @@ export function getPlayersStatSection(
           ? Object.values(player.onlineByMonth).reduce((sum, v) => sum + v, 0)
           : player.onlineByMonth[currentYearMonth]) || 0,
     }))
-    .sort((a, b) => a.online - b.online)
+    .sort((a, b) => b.online - a.online)
     .slice(0, count)
     .map(
       (p, idx) =>

@@ -26,7 +26,7 @@ export function parseServerStatus(
       player.onlineByMonth[currentYearMonthHash] =
         (player.onlineByMonth[currentYearMonthHash] || 0) +
         CONFIG.minecraftPollingIntervalMs;
-      player.lastOnline = new Date();
+      player.lastOnline = new Date().toISOString();
     } else {
       player.isOnline = false;
     }
@@ -35,7 +35,7 @@ export function parseServerStatus(
     ...pingPlayers.map((p) => ({
       ...p,
       isOnline: true,
-      lastOnline: new Date(),
+      lastOnline: new Date().toISOString(),
       onlineByMonth: {
         [currentYearMonthHash]: CONFIG.minecraftPollingIntervalMs,
       },

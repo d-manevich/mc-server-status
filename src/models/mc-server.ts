@@ -2,7 +2,7 @@ export interface PlayerStatus {
   id: string;
   name: string;
   isOnline: boolean;
-  lastOnline: Date;
+  lastOnline: string;
   onlineByMonth: { [YearMonth in string]: number }; // yyyy-m
 }
 
