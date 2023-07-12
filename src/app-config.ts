@@ -1,3 +1,5 @@
+import * as path from "path";
+
 export const APP_CONFIG = {
   timeout: 10000,
   minecraftPollingIntervalMs: 2000,
@@ -7,4 +9,8 @@ export const APP_CONFIG = {
   token: process.env.TG_TOKEN,
   userMockId: "00000000-0000-0000-0000-000000000000", // Getting this ID from server if user is logging in
   thresholdToShowOfflinePlayersMins: 60,
+  cache: {
+    filePath: path.join(process.cwd(), "store-cache.json"),
+    intervalMs: 60_000,
+  },
 };

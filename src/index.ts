@@ -11,6 +11,8 @@ import { parseServerStatus } from "./parse-server-status";
 import { parseUrlForHostAndPort } from "./utils/parse-url-for-host-and-port";
 import { McServer } from "./models/mc-server";
 import { getServerUrl } from "./get-server-url";
+import * as path from "path";
+import * as fs from "fs";
 
 function getServerHash(server: Pick<McServer, "host" | "port" | "version">) {
   return getServerUrl(server) + server.version;
@@ -57,6 +59,18 @@ class McStore {
     const hash = getServerHash({ host, port, version });
     this.servers.delete(hash);
   }
+
+  serialize() {
+    return JSON.stringify(Array.from(this.servers));
+  }
+
+  deserialize(data: string) {
+    try {
+      this.servers = new Map(JSON.parse(data));
+    } catch (err) {
+      console.warn(err);
+    }
+  }
 }
 
 function start() {
@@ -64,6 +78,15 @@ function start() {
     throw new Error("You need to specify telegram bot token");
 
   const store = new McStore();
+  try {
+    store.deserialize(
+      fs.readFileSync(APP_CONFIG.cache.filePath, {
+        encoding: "utf8",
+      }),
+    );
+  } catch (err) {
+    console.warn(err);
+  }
 
   console.log("init telegram bot");
   // Create a bot that uses 'polling' to fetch new updates
@@ -255,6 +278,16 @@ function start() {
       }),
     );
   }, APP_CONFIG.minecraftPollingIntervalMs);
+
+  setInterval(() => {
+    try {
+      fs.writeFileSync(APP_CONFIG.cache.filePath, store.serialize(), {
+        encoding: "utf8",
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }, APP_CONFIG.cache.intervalMs);
 }
 
 start();
