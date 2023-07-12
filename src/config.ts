@@ -1,6 +1,6 @@
 import * as path from "path";
 
-export const APP_CONFIG = {
+export const CONFIG = {
   timeout: 10000,
   minecraftPollingIntervalMs: 2000,
   defaultProtocolVersion: process.env.PROTOCOL_VERSION

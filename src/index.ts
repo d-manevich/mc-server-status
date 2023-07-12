@@ -5,7 +5,7 @@ import {
 import { MinecraftServer, PingResponse } from "mcping-js";
 import * as TelegramBot from "node-telegram-bot-api";
 import { isMinecraftServerAvailable } from "./is-minecraft-server-available";
-import { APP_CONFIG } from "./app-config";
+import { CONFIG } from "./config";
 import { editSendMessage } from "./edit-send-message";
 import { parseServerStatus } from "./parse-server-status";
 import { parseUrlForHostAndPort } from "./utils/parse-url-for-host-and-port";
@@ -74,13 +74,12 @@ class McStore {
 }
 
 function start() {
-  if (!APP_CONFIG.token)
-    throw new Error("You need to specify telegram bot token");
+  if (!CONFIG.token) throw new Error("You need to specify telegram bot token");
 
   const store = new McStore();
   try {
     store.deserialize(
-      fs.readFileSync(APP_CONFIG.cache.filePath, {
+      fs.readFileSync(CONFIG.cache.filePath, {
         encoding: "utf8",
       }),
     );
@@ -90,7 +89,7 @@ function start() {
 
   console.log("init telegram bot");
   // Create a bot that uses 'polling' to fetch new updates
-  const bot = new TelegramBot(APP_CONFIG.token, { polling: true });
+  const bot = new TelegramBot(CONFIG.token, { polling: true });
 
   bot.setMyCommands([
     { command: "/add", description: "Add server for live status updates" },
@@ -108,7 +107,7 @@ function start() {
       await subscribe(
         msg.chat.id,
         match[1],
-        match[2] ? Number(match[2]) : APP_CONFIG.defaultProtocolVersion,
+        match[2] ? Number(match[2]) : CONFIG.defaultProtocolVersion,
       );
     }
   });
@@ -169,7 +168,7 @@ function start() {
   async function subscribe(
     chatId: number,
     url: string,
-    version: number = APP_CONFIG.defaultProtocolVersion,
+    version: number = CONFIG.defaultProtocolVersion,
   ) {
     try {
       const { host, port } = parseUrlForHostAndPort(url);
@@ -270,24 +269,22 @@ function start() {
     void Promise.allSettled(
       store.getAll().map((s) => {
         const server = new MinecraftServer(s.host, s.port);
-        server.ping(
-          APP_CONFIG.timeout,
-          APP_CONFIG.defaultProtocolVersion,
-          (err, res) => onServerUpdate(s, res, err),
+        server.ping(CONFIG.timeout, CONFIG.defaultProtocolVersion, (err, res) =>
+          onServerUpdate(s, res, err),
         );
       }),
     );
-  }, APP_CONFIG.minecraftPollingIntervalMs);
+  }, CONFIG.minecraftPollingIntervalMs);
 
   setInterval(() => {
     try {
-      fs.writeFileSync(APP_CONFIG.cache.filePath, store.serialize(), {
+      fs.writeFileSync(CONFIG.cache.filePath, store.serialize(), {
         encoding: "utf8",
       });
     } catch (err) {
       console.error(err);
     }
-  }, APP_CONFIG.cache.intervalMs);
+  }, CONFIG.cache.intervalMs);
 }
 
 start();

@@ -1,5 +1,5 @@
 import { MinecraftServer } from "mcping-js";
-import { APP_CONFIG } from "./app-config";
+import { CONFIG } from "./config";
 
 export function isMinecraftServerAvailable(
   serverUrl: string,
@@ -13,8 +13,8 @@ export function isMinecraftServerAvailable(
 
     console.log(`trying to ping server ${serverUrl}`);
     serverTest.ping(
-      APP_CONFIG.timeout,
-      APP_CONFIG.defaultProtocolVersion,
+      CONFIG.timeout,
+      CONFIG.defaultProtocolVersion,
       (err, res) => {
         console.log({ serverUrl, err, res });
         if (err) resolve(false);

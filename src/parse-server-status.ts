@@ -1,5 +1,5 @@
 import { PingResponse } from "mcping-js";
-import { APP_CONFIG } from "./app-config";
+import { CONFIG } from "./config";
 import { McServer } from "./models/mc-server";
 
 export function getYearMonthHash(date = new Date()) {
@@ -14,7 +14,7 @@ export function parseServerStatus(
     players: { max: maxPlayers, sample = [] },
   } = res;
   const pingPlayers = sample.filter(
-    (player) => player.id !== APP_CONFIG.userMockId,
+    (player) => player.id !== CONFIG.userMockId,
   );
   const players = mcServer?.players.map((p) => ({ ...p })) || [];
   const currentYearMonthHash = getYearMonthHash();
@@ -25,7 +25,7 @@ export function parseServerStatus(
       player.isOnline = true;
       player.onlineByMonth[currentYearMonthHash] =
         (player.onlineByMonth[currentYearMonthHash] || 0) +
-        APP_CONFIG.minecraftPollingIntervalMs;
+        CONFIG.minecraftPollingIntervalMs;
       player.lastOnline = new Date();
     } else {
       player.isOnline = false;
@@ -37,7 +37,7 @@ export function parseServerStatus(
       isOnline: true,
       lastOnline: new Date(),
       onlineByMonth: {
-        [currentYearMonthHash]: APP_CONFIG.minecraftPollingIntervalMs,
+        [currentYearMonthHash]: CONFIG.minecraftPollingIntervalMs,
       },
     })),
   );
