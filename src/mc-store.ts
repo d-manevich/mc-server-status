@@ -1,16 +1,16 @@
 import { McServer } from "./models/mc-server";
-import { getServerUrl } from "./get-server-url";
-import { parseUrlForHostAndPort } from "./utils/parse-url-for-host-and-port";
+import { formatUrl } from "./utils/format-url";
+import { parseUrl } from "./utils/parse-url";
 
 function getServerHash(server: Pick<McServer, "host" | "port" | "version">) {
-  return getServerUrl(server) + server.version;
+  return formatUrl(server) + server.version;
 }
 
 export class McStore {
   private servers = new Map<string, McServer>();
 
   init(url: string, version: number) {
-    const { host, port } = parseUrlForHostAndPort(url);
+    const { host, port } = parseUrl(url);
     const hash = getServerHash({ host, port, version });
     if (!this.servers.has(hash))
       this.servers.set(hash, {
@@ -25,7 +25,7 @@ export class McStore {
   }
 
   get(url: string, chatId: number) {
-    const { host, port } = parseUrlForHostAndPort(url);
+    const { host, port } = parseUrl(url);
     return Array.from(this.servers.values()).find(
       (s) =>
         s.host === host &&

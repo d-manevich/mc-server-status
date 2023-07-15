@@ -8,7 +8,7 @@ import { pingMinecraftServer } from "./ping-minecraft-server";
 import { CONFIG } from "./config";
 import { editSendMessage } from "./edit-send-message";
 import { parseServerStatus } from "./parse-server-status";
-import { parseUrlForHostAndPort } from "./utils/parse-url-for-host-and-port";
+import { parseUrl } from "./utils/parse-url";
 import { McServer } from "./models/mc-server";
 import * as fs from "fs";
 import { McStore } from "./mc-store";
@@ -122,7 +122,7 @@ function start() {
     version: number = CONFIG.defaultProtocolVersion,
   ) {
     try {
-      const { host, port } = parseUrlForHostAndPort(url);
+      const { host, port } = parseUrl(url);
       try {
         const isServerAvailable = await pingMinecraftServer(
           host,

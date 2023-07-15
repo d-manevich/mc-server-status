@@ -5,7 +5,7 @@ import {
 } from "date-fns";
 import { CONFIG } from "./config";
 import { McServer, PlayerStatus } from "./models/mc-server";
-import { getServerUrl } from "./get-server-url";
+import { formatUrl } from "./utils/format-url";
 import { getYearMonthHash } from "./parse-server-status";
 
 function formatPlayerStatus(player: PlayerStatus) {
@@ -53,7 +53,7 @@ function getPlayerListSection(server: McServer, showMaxOffline = 30) {
   return `${[
     [
       server.hasError ? "🛑" : "",
-      `*${getServerUrl(server)}*`,
+      `*${formatUrl(server)}*`,
       server.hasError
         ? "is offline"
         : `*${online.length}/${server.maxPlayers}*`,

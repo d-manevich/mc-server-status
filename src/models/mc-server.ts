@@ -1,3 +1,5 @@
+import { McUrl } from "./mc-url";
+
 export interface PlayerStatus {
   id: string;
   name: string;
@@ -11,9 +13,7 @@ export interface McChat {
   messageId?: number;
 }
 
-export interface McServer {
-  host: string;
-  port?: number;
+export interface McServer extends McUrl {
   version: number;
   maxPlayers: number;
   players: PlayerStatus[];
