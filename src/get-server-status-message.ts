@@ -50,15 +50,27 @@ function getOfflineSection(offline: PlayerStatus[]) {
   return `${sortedPlayers.map(formatOfflinePlayer).join("\n")}`;
 }
 
-function getPlayerListSection(online: PlayerStatus[], offline: PlayerStatus[]) {
-  return online.length || offline.length
-    ? `${[getOnlineSection(online), getOfflineSection(offline)]
-        .filter(Boolean)
-        .join("\n")}`
-    : "";
+function getPlayerListSection(server: McServer) {
+  const online = server.players.filter((p) => p.isOnline);
+  const offline = server.players.filter((p) => !p.isOnline);
+  return `${[
+    [
+      server.hasError ? "🛑" : "",
+      `*${getServerUrl(server)}*`,
+      server.hasError
+        ? "is offline"
+        : `*${online.length}/${server.maxPlayers}*`,
+    ]
+      .filter(Boolean)
+      .join(" "),
+    getOnlineSection(online),
+    getOfflineSection(offline),
+  ]
+    .filter(Boolean)
+    .join("\n")}`;
 }
 
-export function getPlayersStatSection(
+export function getPlayersStat(
   players: PlayerStatus[],
   count = 3,
   isAllTime = false,
@@ -84,15 +96,15 @@ export function getPlayersStatSection(
     .join("\n");
 }
 
+export function getPlayersStatSection(server: McServer) {
+  return server.players.length
+    ? ["*Top 3 online this month*", getPlayersStat(server.players)].join("\n")
+    : null;
+}
+
 export function getServerStatusMessage(server: McServer) {
   if (!server) return "";
-  const online = server.players.filter((p) => p.isOnline);
-  const offline = server.players.filter((p) => !p.isOnline);
-  return [
-    `*${getServerUrl(server)}* *${online.length}/${server.maxPlayers}*`,
-    getPlayerListSection(online, offline),
-    ...(server.players.length
-      ? ["", "*Top 3 online this month*", getPlayersStatSection(server.players)]
-      : []),
-  ].join("\n");
+  return [getPlayerListSection(server), getPlayersStatSection(server)]
+    .filter((v) => v !== null)
+    .join("\n\n");
 }

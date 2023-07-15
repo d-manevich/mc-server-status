@@ -18,4 +18,5 @@ export interface McServer {
   maxPlayers: number;
   players: PlayerStatus[];
   chats: McChat[];
+  hasError?: boolean;
 }

@@ -1,10 +1,10 @@
 import {
   getServerStatusMessage,
-  getPlayersStatSection,
+  getPlayersStat,
 } from "./get-server-status-message";
-import { MinecraftServer, PingResponse } from "mcping-js";
+import { PingResponse } from "mcping-js";
 import * as TelegramBot from "node-telegram-bot-api";
-import { isMinecraftServerAvailable } from "./is-minecraft-server-available";
+import { pingMinecraftServer } from "./ping-minecraft-server";
 import { CONFIG } from "./config";
 import { editSendMessage } from "./edit-send-message";
 import { parseServerStatus } from "./parse-server-status";
@@ -12,6 +12,17 @@ import { parseUrlForHostAndPort } from "./utils/parse-url-for-host-and-port";
 import { McServer } from "./models/mc-server";
 import * as fs from "fs";
 import { McStore } from "./mc-store";
+import { delay } from "./delay";
+
+function cacheStore(store: McStore) {
+  try {
+    fs.writeFileSync(CONFIG.cache.filePath, store.serialize(), {
+      encoding: "utf8",
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
 
 function start() {
   if (!CONFIG.token) throw new Error("You need to specify telegram bot token");
@@ -69,7 +80,7 @@ function start() {
         msg.chat.id,
         [
           "*Online stats for this month*",
-          getPlayersStatSection(server.players, Infinity),
+          getPlayersStat(server.players, Infinity),
         ].join("\n"),
         { parse_mode: "Markdown" },
       );
@@ -83,7 +94,7 @@ function start() {
         msg.chat.id,
         [
           "*All time online stats*",
-          getPlayersStatSection(server.players, Infinity),
+          getPlayersStat(server.players, Infinity),
         ].join("\n"),
         { parse_mode: "Markdown" },
       );
@@ -113,10 +124,10 @@ function start() {
     try {
       const { host, port } = parseUrlForHostAndPort(url);
       try {
-        const isServerAvailable = await isMinecraftServerAvailable(
-          url,
+        const isServerAvailable = await pingMinecraftServer(
           host,
           port,
+          version,
         );
         if (!isServerAvailable) {
           throw new Error("Invalid minecraft server");
@@ -130,6 +141,7 @@ function start() {
         throw new Error(`${url} is already added`);
       }
       mcServer.chats.push({ chatId });
+      cacheStore(store);
       await bot.sendMessage(chatId, `Server ${url} is successfully added`);
     } catch (error) {
       if (error instanceof Error) {
@@ -153,6 +165,7 @@ function start() {
           1,
         );
       }
+      cacheStore(store);
       await bot.sendMessage(chatId, `Server ${url} is successfully removed`);
     } catch (error) {
       if (error instanceof Error) {
@@ -166,26 +179,26 @@ function start() {
     for (const mcServer of mcServers) {
       store.del(mcServer);
     }
+    cacheStore(store);
     await bot.sendMessage(chatId, "Unsubscribe from all servers");
   }
 
   async function onServerUpdate(
     server: McServer,
     res?: PingResponse,
-    err?: Error,
+    err?: unknown,
   ) {
     if (err) {
       console.error(err);
-      return;
     }
     if (!res || !Object.keys(res).length) {
       console.error("Empty server response");
-      return;
     }
     const oldServerStatusMessage = getServerStatusMessage(server);
     const newServerStatus = parseServerStatus(res, server);
     server.maxPlayers = newServerStatus.maxPlayers;
     server.players = newServerStatus.players;
+    server.hasError = !!err;
     const serverStatusMessage = getServerStatusMessage(server);
     if (serverStatusMessage !== oldServerStatusMessage) {
       await Promise.allSettled(
@@ -205,25 +218,26 @@ function start() {
     }
   }
 
-  setInterval(() => {
-    void Promise.allSettled(
-      store.getAll().map((s) => {
-        const server = new MinecraftServer(s.host, s.port);
-        server.ping(CONFIG.timeout, CONFIG.defaultProtocolVersion, (err, res) =>
-          onServerUpdate(s, res, err),
-        );
+  // Not just an interval to make the next requests only after getting the results of the current one
+  async function pingAll() {
+    await delay(CONFIG.minecraftPollingIntervalMs);
+    await Promise.allSettled(
+      store.getAll().map(async (s) => {
+        try {
+          const res = await pingMinecraftServer(s.host, s.port, s.version);
+          await onServerUpdate(s, res);
+        } catch (err) {
+          await onServerUpdate(s, undefined, err);
+        }
       }),
     );
-  }, CONFIG.minecraftPollingIntervalMs);
+    await pingAll();
+  }
+
+  void pingAll();
 
   setInterval(() => {
-    try {
-      fs.writeFileSync(CONFIG.cache.filePath, store.serialize(), {
-        encoding: "utf8",
-      });
-    } catch (err) {
-      console.error(err);
-    }
+    cacheStore(store);
   }, CONFIG.cache.intervalMs);
 }
 

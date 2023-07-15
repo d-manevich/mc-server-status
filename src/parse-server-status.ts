@@ -7,9 +7,18 @@ export function getYearMonthHash(date = new Date()) {
 }
 
 export function parseServerStatus(
-  res: PingResponse,
+  res?: PingResponse,
   mcServer?: McServer,
 ): Pick<McServer, "players" | "maxPlayers"> {
+  if (!res) {
+    return {
+      players: (mcServer?.players || []).map((p) => ({
+        ...p,
+        isOnline: false,
+      })),
+      maxPlayers: mcServer?.maxPlayers || 0,
+    };
+  }
   const {
     players: { max: maxPlayers, sample = [] },
   } = res;
