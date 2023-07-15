@@ -1,7 +1,7 @@
 import {
   formatDistance,
-  differenceInMinutes,
   formatDistanceToNow,
+  differenceInMilliseconds,
 } from "date-fns";
 import { CONFIG } from "./config";
 import { McServer, PlayerStatus } from "./models/mc-server";
@@ -40,8 +40,8 @@ function getOnlineSection(online: PlayerStatus[]) {
 function getOfflineSection(offline: PlayerStatus[]) {
   const filteredOffline = offline.filter(
     (p) =>
-      Math.abs(differenceInMinutes(new Date(p.lastOnline), new Date())) <
-      CONFIG.thresholdToShowOfflinePlayersMins,
+      Math.abs(differenceInMilliseconds(new Date(p.lastOnline), new Date())) <
+      CONFIG.thresholdToShowOfflinePlayersMs,
   );
   if (!filteredOffline.length) {
     return "";
