@@ -24,35 +24,36 @@ function formatOfflinePlayer(player: PlayerStatus) {
   return `⚪${player.name} ~ ${formattedDuration}`;
 }
 
-function sortPlayersByLastOnline(players: PlayerStatus[]) {
-  players.sort((a, b) => +new Date(b.lastOnline) - +new Date(a.lastOnline));
-  return players;
+function comparePlayers(a: PlayerStatus, b: PlayerStatus): number {
+  if (!a.isOnline && !b.isOnline)
+    return +new Date(b.lastOnline) - +new Date(a.lastOnline);
+  if (a.isOnline && b.isOnline) return a.name.localeCompare(b.name);
+  if (a.isOnline && !b.isOnline) return 1;
+  return -1;
 }
-function getOnlineSection(online: PlayerStatus[]) {
-  if (!online.length) {
-    return "";
-  }
-  online.sort((a, b) => a.name.localeCompare(b.name));
 
-  return online.map(formatOnlinePlayer).join("\n");
+function getOnlineSection(online: PlayerStatus[]) {
+  return online.slice().sort(comparePlayers).map(formatOnlinePlayer).join("\n");
 }
 
 function getOfflineSection(offline: PlayerStatus[]) {
-  const filteredOffline = offline.filter(
-    (p) =>
-      Math.abs(differenceInMilliseconds(new Date(p.lastOnline), new Date())) <
-      CONFIG.thresholdToShowOfflinePlayersMs,
-  );
-  if (!filteredOffline.length) {
-    return "";
-  }
-  const sortedPlayers = sortPlayersByLastOnline(filteredOffline);
-  return `${sortedPlayers.map(formatOfflinePlayer).join("\n")}`;
+  return offline
+    .slice()
+    .filter(
+      (p) =>
+        Math.abs(differenceInMilliseconds(new Date(p.lastOnline), new Date())) <
+        CONFIG.thresholdToShowOfflinePlayersMs,
+    )
+    .sort(comparePlayers)
+    .map(formatOfflinePlayer)
+    .join("\n");
 }
 
-function getPlayerListSection(server: McServer) {
+function getPlayerListSection(server: McServer, showMaxOffline = 30) {
   const online = server.players.filter((p) => p.isOnline);
-  const offline = server.players.filter((p) => !p.isOnline);
+  const offline = server.players
+    .filter((p) => !p.isOnline)
+    .slice(0, Math.max(0, showMaxOffline - online.length));
   return `${[
     [
       server.hasError ? "🛑" : "",
