@@ -1,7 +1,8 @@
+import "dotenv/config";
 import * as path from "path";
 
 export const CONFIG = {
-  timeout: 10000,
+  pingTimeoutMs: 10000,
   minecraftPollingIntervalMs: 2000,
   defaultProtocolVersion: process.env.PROTOCOL_VERSION
     ? Number(process.env.PROTOCOL_VERSION)
