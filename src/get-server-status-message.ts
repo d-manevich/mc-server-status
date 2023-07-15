@@ -8,11 +8,8 @@ import { McServer, PlayerStatus } from "./models/mc-server";
 import { getServerUrl } from "./get-server-url";
 import { getYearMonthHash } from "./parse-server-status";
 
-function formatOnlinePlayer(player: PlayerStatus) {
-  return `🟢${player.name}`;
-}
-
-function formatOfflinePlayer(player: PlayerStatus) {
+function formatPlayerStatus(player: PlayerStatus) {
+  if (player.isOnline) return `🟢${player.name}`;
   const formattedDuration = formatDistance(
     new Date(player.lastOnline),
     new Date(),
@@ -20,7 +17,6 @@ function formatOfflinePlayer(player: PlayerStatus) {
       addSuffix: true,
     },
   );
-
   return `⚪${player.name} ~ ${formattedDuration}`;
 }
 
@@ -28,12 +24,12 @@ function comparePlayers(a: PlayerStatus, b: PlayerStatus): number {
   if (!a.isOnline && !b.isOnline)
     return +new Date(b.lastOnline) - +new Date(a.lastOnline);
   if (a.isOnline && b.isOnline) return a.name.localeCompare(b.name);
-  if (a.isOnline && !b.isOnline) return 1;
-  return -1;
+  if (a.isOnline && !b.isOnline) return -1;
+  return 1;
 }
 
 function getOnlineSection(online: PlayerStatus[]) {
-  return online.slice().sort(comparePlayers).map(formatOnlinePlayer).join("\n");
+  return online.slice().sort(comparePlayers).map(formatPlayerStatus).join("\n");
 }
 
 function getOfflineSection(offline: PlayerStatus[]) {
@@ -45,7 +41,7 @@ function getOfflineSection(offline: PlayerStatus[]) {
         CONFIG.thresholdToShowOfflinePlayersMs,
     )
     .sort(comparePlayers)
-    .map(formatOfflinePlayer)
+    .map(formatPlayerStatus)
     .join("\n");
 }
 
