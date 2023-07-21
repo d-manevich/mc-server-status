@@ -4,7 +4,7 @@ import { hydrateReply, parseMode } from "@grammyjs/parse-mode";
 import { autoRetry } from "@grammyjs/auto-retry";
 import { limit } from "@grammyjs/ratelimiter";
 import { apiThrottler } from "@grammyjs/transformer-throttler";
-import { Bot as TelegramBot, BotConfig, StorageAdapter } from "grammy";
+import { BotConfig, StorageAdapter, Bot as TelegramBot } from "grammy";
 import { Context, createContextConstructor } from "~/bot/context";
 import { metrics } from "~/bot/middlewares/metrics.middleware";
 import { isMultipleLocales } from "~/bot/i18n";
@@ -21,7 +21,6 @@ import { languageFeature } from "~/bot/features/language.feature";
 import { unhandledFeature } from "~/bot/features/unhandled.feature";
 import { errorHandler } from "~/bot/handlers/error.handler";
 import { serverManagementFeature } from "~/bot/features/server-management.feature";
-
 
 type Dependencies = {
   container: Container;

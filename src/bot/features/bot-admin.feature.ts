@@ -13,8 +13,8 @@ import {
 import { logHandle } from "~/bot/helpers/logging";
 import { userRequests } from "~/bot/helpers/user-requests";
 import { i18n, isMultipleLocales } from "~/bot/i18n";
-import {isAdminUser} from "~/bot/filters/is-admin-user.filter";
-import {isOwnerUser} from "~/bot/filters/is-owner-user.filter";
+import { isAdminUser } from "~/bot/filters/is-admin-user.filter";
+import { isOwnerUser } from "~/bot/filters/is-owner-user.filter";
 
 const composer = new Composer<Context>();
 

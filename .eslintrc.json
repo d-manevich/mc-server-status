@@ -23,12 +23,13 @@
   ],
   "rules": {
     "arrow-body-style": "off",
-    "prefer-arrow-callback": "off",
-    "consistent-return": "off",
     "camelcase": "off",
-    "import/prefer-default-export": "off",
+    "consistent-return": "off",
     "import/extensions": "off",
+    "import/prefer-default-export": "off",
+    "no-restricted-syntax": "off",
     "no-underscore-dangle": "off",
+    "prefer-arrow-callback": "off",
     "prettier/prettier": [
       "error",
       {
@@ -36,7 +37,6 @@
         "tabWidth": 2
       }
     ],
-    "sort-imports": "error",
     "unicorn/no-array-callback-reference": "off",
     "unicorn/prevent-abbreviations": [
       "error",

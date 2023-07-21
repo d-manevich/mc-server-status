@@ -1,93 +1,6 @@
-import { beforeEach, describe, expect, it } from "vitest";
 import { getServerStatusMessage } from "./get-server-status-message";
 import { McServer } from "./models/mc-server";
 import { CONFIG } from "./config";
-
-describe("getServerStatusMessage", () => {
-  let serverStatusStub = getServerStatusStub();
-  beforeEach(() => {
-    serverStatusStub = getServerStatusStub();
-    CONFIG.thresholdToShowOfflinePlayersMs = 60 * 60_000;
-  });
-
-  it("offline + online", () => {
-    const result = getServerStatusMessage(serverStatusStub);
-    expect(result).toMatchInlineSnapshot(`
-      "*test.goodmc.org* *2/30*
-      🟢player1
-      🟢player2
-      ⚪player5 ~ less than a minute ago
-      ⚪player3 ~ 1 minute ago
-      ⚪player4 ~ 30 minutes ago
-      
-      *Top 3 online this month*
-      🥇 player1 ~ less than a minute
-      🥈 player2 ~ less than a minute
-      🥉 player3 ~ less than a minute"
-    `);
-  });
-
-  it("no online no offline", () => {
-    serverStatusStub.players = [];
-    const result = getServerStatusMessage(serverStatusStub);
-    expect(result).toMatchInlineSnapshot(`
-      "*test.goodmc.org* *0/30*"
-    `);
-  });
-
-  it("offline only", () => {
-    serverStatusStub.players = serverStatusStub.players.filter(
-      (p) => !p.isOnline,
-    );
-    const result = getServerStatusMessage(serverStatusStub);
-    expect(result).toMatchInlineSnapshot(`
-      "*test.goodmc.org* *0/30*
-      ⚪player5 ~ less than a minute ago
-      ⚪player3 ~ 1 minute ago
-      ⚪player4 ~ 30 minutes ago
-
-      *Top 3 online this month*
-      🥇 player3 ~ less than a minute
-      🥈 player4 ~ less than a minute
-      🥉 player5 ~ less than a minute"
-    `);
-  });
-
-  it("online only", () => {
-    serverStatusStub.players = serverStatusStub.players.filter(
-      (p) => p.isOnline,
-    );
-    const result = getServerStatusMessage(serverStatusStub);
-    expect(result).toMatchInlineSnapshot(`
-      "*test.goodmc.org* *2/30*
-      🟢player1
-      🟢player2
-
-      *Top 3 online this month*
-      🥇 player1 ~ less than a minute
-      🥈 player2 ~ less than a minute"
-    `);
-  });
-
-  it("is offline", () => {
-    serverStatusStub.hasError = true;
-    serverStatusStub.players.forEach((p) => (p.isOnline = false));
-    const result = getServerStatusMessage(serverStatusStub);
-    expect(result).toMatchInlineSnapshot(`
-      "🛑 *test.goodmc.org* is offline
-      ⚪player1 ~ less than a minute ago
-      ⚪player2 ~ less than a minute ago
-      ⚪player5 ~ less than a minute ago
-      ⚪player3 ~ 1 minute ago
-      ⚪player4 ~ 30 minutes ago
-      
-      *Top 3 online this month*
-      🥇 player1 ~ less than a minute
-      🥈 player2 ~ less than a minute
-      🥉 player3 ~ less than a minute"
-    `);
-  });
-});
 
 function getServerStatusStub(): McServer {
   const _30minsAgo = new Date();
@@ -148,3 +61,89 @@ function getServerStatusStub(): McServer {
     ],
   };
 }
+
+describe("getServerStatusMessage", () => {
+  let serverStatusStub = getServerStatusStub();
+  beforeEach(() => {
+    serverStatusStub = getServerStatusStub();
+    CONFIG.thresholdToShowOfflinePlayersMs = 60 * 60_000;
+  });
+
+  it("offline + online", () => {
+    const result = getServerStatusMessage(serverStatusStub);
+    expect(result).toMatchInlineSnapshot(`
+      "*test.goodmc.org* *2/30*
+      🟢player1
+      🟢player2
+      ⚪player5 ~ less than a minute ago
+      ⚪player3 ~ 1 minute ago
+      ⚪player4 ~ 30 minutes ago
+
+      *Top 3 online this month*
+      🥇 player1 ~ less than a minute
+      🥈 player2 ~ less than a minute
+      🥉 player3 ~ less than a minute"
+    `);
+  });
+
+  it("no online no offline", () => {
+    serverStatusStub.players = [];
+    const result = getServerStatusMessage(serverStatusStub);
+    expect(result).toMatchInlineSnapshot(`
+      "*test.goodmc.org* *0/30*"
+    `);
+  });
+
+  it("offline only", () => {
+    serverStatusStub.players = serverStatusStub.players.filter(
+      (p) => !p.isOnline,
+    );
+    const result = getServerStatusMessage(serverStatusStub);
+    expect(result).toMatchInlineSnapshot(`
+      "*test.goodmc.org* *0/30*
+      ⚪player5 ~ less than a minute ago
+      ⚪player3 ~ 1 minute ago
+      ⚪player4 ~ 30 minutes ago
+
+      *Top 3 online this month*
+      🥇 player3 ~ less than a minute
+      🥈 player4 ~ less than a minute
+      🥉 player5 ~ less than a minute"
+    `);
+  });
+
+  it("online only", () => {
+    serverStatusStub.players = serverStatusStub.players.filter(
+      (p) => p.isOnline,
+    );
+    const result = getServerStatusMessage(serverStatusStub);
+    expect(result).toMatchInlineSnapshot(`
+      "*test.goodmc.org* *2/30*
+      🟢player1
+      🟢player2
+
+      *Top 3 online this month*
+      🥇 player1 ~ less than a minute
+      🥈 player2 ~ less than a minute"
+    `);
+  });
+
+  it("is offline", () => {
+    serverStatusStub.hasError = true;
+    for (const p of serverStatusStub.players) p.isOnline = false;
+    const result = getServerStatusMessage(serverStatusStub);
+    expect(result).toMatchInlineSnapshot(`
+      "🛑 *test.goodmc.org* is offline
+      ⚪player1 ~ less than a minute ago
+      ⚪player2 ~ less than a minute ago
+      ⚪player5 ~ less than a minute ago
+      ⚪player3 ~ 1 minute ago
+      ⚪player4 ~ 30 minutes ago
+
+      *Top 3 online this month*
+      🥇 player1 ~ less than a minute
+      🥈 player2 ~ less than a minute
+      🥉 player3 ~ less than a minute"
+    `);
+  });
+});

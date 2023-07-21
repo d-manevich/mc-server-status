@@ -9,9 +9,9 @@ export function pingMinecraftServer(
 ): Promise<PingResponse | undefined> {
   return new Promise((resolve, reject) => {
     const server = new MinecraftServer(host, port);
-    server.ping(timeout, version, (err, res) => {
-      if (err) reject(err);
-      resolve(res);
+    server.ping(timeout, version, (error, response) => {
+      if (error) reject(error);
+      resolve(response);
     });
   });
 }

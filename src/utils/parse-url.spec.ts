@@ -1,5 +1,3 @@
-import { describe, expect, it } from "vitest";
-import { formatUrl } from "./format-url";
 import { parseUrl } from "./parse-url";
 
 describe("parseUrl", () => {

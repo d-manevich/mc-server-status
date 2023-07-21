@@ -1,7 +1,7 @@
 import { config } from "~/config";
 import { createLogger } from "~/logger";
 import { createPrisma } from "~/prisma";
-import { createMcStore, McStore } from "~/mc-store";
+import { createMcStore } from "~/mc-store";
 
 export const createAppContainer = () => {
   const logger = createLogger(config);
@@ -12,7 +12,7 @@ export const createAppContainer = () => {
     config,
     logger,
     prisma,
-    store
+    store,
   };
 };
 

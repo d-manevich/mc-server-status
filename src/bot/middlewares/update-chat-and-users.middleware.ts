@@ -4,30 +4,32 @@ import { Prisma } from "@prisma/client";
 
 export const updateChatAndUsers = (): Middleware<Context> => {
   return async (ctx, next) => {
-    const { message, prisma, logger } = ctx;
+    const { message, prisma, me } = ctx;
     if (!message?.chat) {
       return next();
     }
     const queries: Prisma.PrismaPromise<unknown>[] = [];
 
-    if (message.from?.id === ctx.me.id) {
+    if (message.from?.id === me.id) {
       // saving bot message
-      queries.push(prisma.botMessage.upsert({
-        where: {
-          messageId_chatId: {
+      queries.push(
+        prisma.botMessage.upsert({
+          where: {
+            messageId_chatId: {
+              messageId: message.message_id,
+              chatId: message.chat.id,
+            },
+          },
+          create: {
             messageId: message.message_id,
             chatId: message.chat.id,
+            text: message.text,
+            botId: me.id,
+            date: new Date(message.date * 1000),
           },
-        },
-        create: {
-          messageId: message.message_id,
-          chatId: message.chat.id,
-          text: message.text,
-          botId: ctx.me.id,
-          date: new Date(message.date * 1000),
-        },
-        update: {},
-      }));
+          update: {},
+        }),
+      );
     } else {
       const { chat, from } = message;
       const chatDto: Prisma.ChatCreateInput = {
@@ -42,10 +44,8 @@ export const updateChatAndUsers = (): Middleware<Context> => {
           create: chatDto,
           update: {},
         }),
-      );
-      queries.push(
         prisma.user.update({
-          where: ctx.prisma.user.byTelegramId(from.id),
+          where: prisma.user.byTelegramId(from.id),
           data: {
             chats: {
               connect: {
@@ -62,7 +62,3 @@ export const updateChatAndUsers = (): Middleware<Context> => {
     }
   };
 };
-
-function saveBotMessage() {
-
-}

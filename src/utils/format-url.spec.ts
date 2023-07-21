@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import { formatUrl } from "./format-url";
 
 describe("formatUrl", () => {

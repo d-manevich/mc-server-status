@@ -1,3 +1,5 @@
+#!/usr/bin/env tsx
+
 import { Role } from "@prisma/client";
 import { onShutdown } from "node-graceful-shutdown";
 import { createBot } from "~/bot";
@@ -54,28 +56,30 @@ try {
     },
   });
 
-
   // TODO refactor
-  async function onServerUpdate(
-    server: McServer,
-    res?: PingResponse,
-    err?: unknown,
-  ) {
-    if (err) {
-      Sentry.captureException(err);
+  const onServerUpdate = async (
+    mcServer: McServer,
+    pingResponse?: PingResponse,
+    error?: unknown,
+  ) => {
+    if (error) {
+      Sentry.captureException(error);
     }
-    if (!res || !Object.keys(res).length) {
+    if (!pingResponse || Object.keys(pingResponse).length === 0) {
       Sentry.captureException(new Error("Empty server response"));
     }
-    const oldServerStatusMessage = getServerStatusMessage(server);
-    const newServerStatus = parseServerStatus(res, server);
-    server.maxPlayers = newServerStatus.maxPlayers;
-    server.players = newServerStatus.players;
-    server.hasError = !!err;
-    const serverStatusMessage = getServerStatusMessage(server);
+    const oldServerStatusMessage = getServerStatusMessage(mcServer);
+    const newServerStatus = parseServerStatus(pingResponse, mcServer);
+    // eslint-disable-next-line no-param-reassign
+    mcServer.maxPlayers = newServerStatus.maxPlayers;
+    // eslint-disable-next-line no-param-reassign
+    mcServer.players = newServerStatus.players;
+    // eslint-disable-next-line no-param-reassign
+    mcServer.hasError = !!error;
+    const serverStatusMessage = getServerStatusMessage(mcServer);
     if (serverStatusMessage !== oldServerStatusMessage) {
       await Promise.allSettled(
-        server.chats.map(async (c) => {
+        mcServer.chats.map(async (c) => {
           const message = await editSendMessage(
             bot,
             container,
@@ -85,30 +89,31 @@ try {
           );
           if (message) {
             // TODO: Notify the channel if it failed to update or send a message?
+            // eslint-disable-next-line no-param-reassign
             c.messageId = message.message_id;
           }
         }),
       );
     }
-  }
+  };
 
   // Not just an interval to make the next requests only after getting the results of the current one
-  async function pingAll() {
+  const pingAll = async () => {
     await delay(CONFIG.minecraftPollingIntervalMs);
     await Promise.allSettled(
       store.getAll().map(async (s) => {
         try {
-          const res = await pingMinecraftServer(s.host, s.port, s.version);
-          await onServerUpdate(s, res);
-        } catch (err) {
-          await onServerUpdate(s, undefined, err);
+          const response = await pingMinecraftServer(s.host, s.port, s.version);
+          await onServerUpdate(s, response);
+        } catch (error) {
+          await onServerUpdate(s, undefined, error);
         }
       }),
     );
     await pingAll();
-  }
+  };
 
-  void pingAll();
+  pingAll();
 
   setInterval(() => {
     store.cache();
@@ -136,8 +141,6 @@ try {
         }),
     });
   }
-
-
 } catch (error) {
   container.logger.error(error);
   process.exit(1);

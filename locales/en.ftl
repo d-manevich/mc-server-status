@@ -6,22 +6,30 @@ admin_command =
     .description = Make user an administrator
 setcommands_command =
     .description = Set bot commands
+stats_command =
+    .description = Bot statistics
 
 add_command =
-    .description = description: Add server for live status updates
+    .description = Add server for live status updates
     .incorrect_address = Incorrect server address
     .server_unavailable = Server is unavailable
     .server_existed = {$url} was already added
     .server_added = Server {$url} is successfully added
 
 remove_command =
-    .description = description: Delete server from live status updates
+    .description = Delete server from live status updates
+    .server_not_added = {$url} was not added
+    .server_removed = Server {$url} is successfully removed
 stop_command =
-    .description = description: Stop live status
+    .description = Stop live status
+    .all_servers_removed = Unsubscribed from all servers
+
 stat_command =
-    .description = description: All time online stats
+    .description = All time online stats
+    .stats_header = All time online stats
 month_command =
-    .description = description: Online stats for this month
+    .description = Online stats for this month
+    .stats_header = Online stats for this month
 
 
 welcome = Hello! I help you get online statuses from Minecraft servers.

@@ -3,14 +3,14 @@ import { CONFIG } from "./config";
 import { McServer } from "./models/mc-server";
 
 export function getYearMonthHash(date = new Date()) {
-  return date.getFullYear() + "-" + date.getMonth();
+  return `${date.getFullYear()}-${date.getMonth()}`;
 }
 
 export function parseServerStatus(
-  res?: PingResponse,
+  pingResponse?: PingResponse,
   mcServer?: McServer,
 ): Pick<McServer, "players" | "maxPlayers"> {
-  if (!res) {
+  if (!pingResponse) {
     return {
       players: (mcServer?.players || []).map((p) => ({
         ...p,
@@ -21,23 +21,23 @@ export function parseServerStatus(
   }
   const {
     players: { max: maxPlayers, sample = [] },
-  } = res;
+  } = pingResponse;
   const pingPlayers = sample.filter(
     (player) => player.id !== CONFIG.userMockId,
   );
   const players = mcServer?.players.map((p) => ({ ...p })) || [];
   const currentYearMonthHash = getYearMonthHash();
   for (const player of players) {
-    const pingPlayerIdx = pingPlayers.findIndex((p) => p.id === player.id);
-    pingPlayers.splice(pingPlayerIdx, 1);
-    if (pingPlayerIdx !== -1) {
+    const pingPlayerIndex = pingPlayers.findIndex((p) => p.id === player.id);
+    pingPlayers.splice(pingPlayerIndex, 1);
+    if (pingPlayerIndex === -1) {
+      player.isOnline = false;
+    } else {
       player.isOnline = true;
       player.onlineByMonth[currentYearMonthHash] =
         (player.onlineByMonth[currentYearMonthHash] || 0) +
         CONFIG.minecraftPollingIntervalMs;
       player.lastOnline = new Date().toISOString();
-    } else {
-      player.isOnline = false;
     }
   }
   players.push(

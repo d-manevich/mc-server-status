@@ -3,12 +3,12 @@ import { Message } from "@grammyjs/types";
 import { Container } from "~/container";
 
 export async function editSendMessage(
-  bot:Bot,
+  bot: Bot,
   container: Container,
   chatId: number,
   text: string,
   messageId?: number,
-): Promise<Message | null> {
+): Promise<Message | undefined> {
   if (messageId) {
     try {
       const message = await bot.api.editMessageText(chatId, messageId, text, {
@@ -17,15 +17,23 @@ export async function editSendMessage(
       if (typeof message === "object") {
         return message;
       }
-    } catch (err) {
-      container.logger.warn("can't edit message", { chatId, messageId, text }, err);
+    } catch (error) {
+      container.logger.warn(
+        "can't edit message",
+        { chatId, messageId, text },
+        error,
+      );
     }
   }
   if (messageId) {
     try {
       await bot.api.deleteMessage(chatId, messageId);
-    } catch (err) {
-      container.logger.error("can't delete message", { chatId, messageId }, err);
+    } catch (error) {
+      container.logger.error(
+        "can't delete message",
+        { chatId, messageId },
+        error,
+      );
     }
   }
   try {
@@ -33,9 +41,13 @@ export async function editSendMessage(
       disable_notification: true,
       parse_mode: "Markdown",
     });
-    const pinnedMessageMessage = await bot.api.pinChatMessage(chatId, message.message_id, {
-      disable_notification: true,
-    });
+    const pinnedMessageMessage = await bot.api.pinChatMessage(
+      chatId,
+      message.message_id,
+      {
+        disable_notification: true,
+      },
+    );
     container.prisma.botMessage.upsert({
       where: {
         messageId_chatId: {
@@ -49,13 +61,13 @@ export async function editSendMessage(
         text: message.text,
         botId: bot.botInfo.id,
         date: new Date(message.date * 1000),
-        pinned: pinnedMessageMessage
+        pinned: pinnedMessageMessage,
       },
-      update: {}
+      update: {},
     });
     return message;
-  } catch (err) {
-    container.logger.warn("Error", { chatId, text }, err);
+  } catch (error) {
+    container.logger.warn("Error", { chatId, text }, error);
   }
-  return null;
+  return undefined;
 }

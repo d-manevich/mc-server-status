@@ -1,12 +1,11 @@
 import "dotenv/config";
-import * as path from "path";
+import * as path from "node:path";
 
-import "dotenv/config";
 import { API_CONSTANTS } from "grammy";
 import z from "zod";
 
 const configSchema = z.object({
-  NODE_ENV: z.enum(["development", "production"]),
+  NODE_ENV: z.enum(["development", "production", "test"]),
   LOG_LEVEL: z.enum([
     "trace",
     "debug",
@@ -50,8 +49,8 @@ export type Config = ReturnType<typeof parseConfig>;
 export const config = parseConfig(process.env);
 
 export const CONFIG = {
-  pingTimeoutMs: 5_000,
-  minecraftPollingIntervalMs: 2_000,
+  pingTimeoutMs: 5000,
+  minecraftPollingIntervalMs: 2000,
   defaultProtocolVersion: process.env.PROTOCOL_VERSION
     ? Number(process.env.PROTOCOL_VERSION)
     : 763, // 1.7.1 from https://wiki.vg/Protocol_version_numbers
