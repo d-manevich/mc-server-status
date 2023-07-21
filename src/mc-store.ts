@@ -1,6 +1,8 @@
 import { McServer } from "./models/mc-server";
 import { formatUrl } from "./utils/format-url";
 import { parseUrl } from "./utils/parse-url";
+import fs from "fs";
+import { CONFIG } from "~/config";
 
 function getServerHash(server: Pick<McServer, "host" | "port" | "version">) {
   return formatUrl(server) + server.version;
@@ -59,4 +61,19 @@ export class McStore {
       console.warn(err);
     }
   }
+
+  // TODO clarify what it was extracted to separate function
+  cache() {
+    try {
+      fs.writeFileSync(CONFIG.cache.filePath, this.serialize(), {
+        encoding: "utf8",
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }
+}
+
+export function createMcStore() {
+  return new McStore();
 }

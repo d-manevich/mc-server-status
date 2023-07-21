@@ -1,0 +1,66 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["metrics"]
+  binaryTargets   = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  value String
+}
+
+enum Role {
+  USER
+  ADMIN
+  OWNER
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  telegramId   BigInt   @unique @map("telegram_id")
+  languageCode String?  @map("language_code")
+  role         Role     @default(USER)
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  chats        Chat[]
+
+  @@map(name: "users")
+}
+
+model Chat {
+  id         BigInt       @id
+  type       ChatType
+  createdAt  DateTime     @default(now())
+  users      User[]
+  botMessage BotMessage[]
+
+  @@map(name: "chats")
+}
+
+model BotMessage {
+  messageId  BigInt
+  date       DateTime  @default(now())
+  editedDate DateTime?
+  pinned     Boolean   @default(false)
+  text       String?
+  botId      BigInt
+  chat       Chat      @relation(fields: [chatId], references: [id])
+  chatId     BigInt
+  meta       Json?
+
+  @@unique([messageId, chatId])
+  @@map(name: "botMessages")
+}
+
+enum ChatType {
+  channel
+  private
+  group
+  supergroup
+}
